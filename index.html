@@ -2,9 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAD3ElEQVR4nO3cS04bQQBF0TbKvhizgiyAKRJrQWLKAlgBY1ZGBpGR8bc/VV1dj3OGKDGt9uWlbCLvho24f/z71foaWObz7X3X+hqaXYCA87UIfNVvKOLfa624q38TEXOsZtzVHljI3FIj7OIPKGSmKhn2XakHGgYxM0/Jbor8ZAiZUpau9eKFFjMlLe1pUdBipoYlXc2adyGzlqlHkMkLLWbWNLW3SUGLmRamdDc6aDHT0tj+ir4PDa2NCto6swVjOrwZtJjZkls9Xg1azGzRtS6doYlyMWjrzJZd6vNs0GKmB+c6deQgyknQ1pmeHPdqoYnyI2jrTI8Ou7XQRBE0Ub6DdtygZ/t+LTRRBE2U3TA4bpDDQhNF0EQRNFHunJ9JYqGJImiiCJoof1pfQLqPl9eTrz08PzW4kt9h50VhHedCPibs8hw5KhgT85Q/x3iCLmxqpKIuS9AFzY1T1OUImiiCLmTpylrpMgRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNlNiP0/VJRLclfpxvXNBCni4p7Kgjh5jnSbpvMUEnPSktpNy/iKBTnozWEu5jRNCw133QCauyJb3fz+6DhkOCJoqgiSJoonQfdNJvubag9/vZfdBwKCLo3ldlKxLuY0TQw5DxZLSUcv9igh6GnCdlbUn3Le6/j+71/huvNSSFvBcb9NpK/AAlBra2qCMHCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCLqQh+enpn+f/wRNFEEXNHdlrXM5gi5sapxiLkvQFYyNVMzl7e4f/361vohkHy+vJ18Tcj2CJoojB1EETRRBE+Xu8+191/oioBQLTRRBE0XQRLkbhmFwjibB59v7zkITRdBE+Q7asYOe7fu10EQRNFF+BO3YQY8Ou7XQRDkJ2krTk+NeLTRRzgZtpenBuU4vLrSo2bJLfTpyEOVq0FaaLbrW5c2FFjVbcqvHUUcOUbMFYzp0hibK6KCtNC2N7W/SQouaFqZ0N/nIIWrWNLW3RXH6XDxqmTuci14UWmtqWNLV4nc5RE1JS3sqGqMjCHOVGsai70Nba+Yo2U21AK01t9QYwOqLKmyO1fyXfNUjgrh/r7WOo83OvOLO1+I11T8erQY0B8TKJQAAAABJRU5ErkJggg==">
+<meta name="theme-color" content="#3F6357">
 <title>소그룹커뮤 · 교회 소그룹 관리</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -55,9 +57,11 @@
     margin:0; font-family:var(--font-body);
     background:var(--paper); color:var(--ink);
     -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
   }
   h1,h2,h3{font-family:var(--font-heading); margin:0;}
-  input,select,textarea,button{font-family:inherit; font-size:0.9375rem;}
+  input,select,textarea{font-family:inherit; font-size:1rem;}
+  button{font-family:inherit; font-size:0.9375rem;}
   input[type="text"],input[type="password"],input[type="number"],input[type="date"],select,textarea{
     width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px;
     background:var(--paper-raised); color:var(--ink);
@@ -223,19 +227,6 @@
   .editorial-dots .dot{width:5px; height:5px; border-radius:50%; background:var(--line);}
   .editorial-dots .dot.active{background:#8B85A3;}
   .ig-calendar-card{background:#FFFFFF; border:none; border-radius:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
-
-  /* ---- 성경 본문 읽기 전용 스타일 ---- */
-  .bible-reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
-  .bible-chapter-title{font-size:1.4375rem;margin-top:3px;}
-  .bible-page-count{font-size:0.75rem;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
-  .bible-range-note{background:var(--pine-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:var(--ink-soft);margin-bottom:14px;}
-  .bible-text{font-family:var(--font-heading);background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
-  .bible-verse{font-size:1.0625rem;line-height:1.9;margin:0 0 10px;letter-spacing:-.01em;}
-  .bible-verse:last-child{margin-bottom:0;}
-  .bible-verse sup{font-family:var(--font-body);font-size:0.6875rem;color:var(--pine);font-weight:700;margin-right:6px;vertical-align:top;line-height:1.7;}
-  .bible-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .bible-nav .btn:disabled{opacity:.35;cursor:default;}
-  .bible-loading{text-align:center;padding:50px 10px;color:var(--ink-faint);font-size:0.8125rem;}
 </style>
 </head>
 <body>
@@ -1195,113 +1186,10 @@ function getStoredStartChapter(progressRow, plan, dateIso){
   var range = computeReadingPlanDayRange(plan, dateIso);
   return range && range.chapters[0] ? range.chapters[0] : null;
 }
-
-// --- Supabase DB 성경 본문 쿼리 ---
-async function loadBibleChapter(book, chapter){
+function youversionReadUrl(book, chapter){
   var code = BSKOREA_BOOK_CODE[book];
-  var shortBook = book.slice(0, 1);
-  var cNum = Number(chapter);
-
-  var r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  if (code) {
-    r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code', code).eq('chapter', cNum).order('verse', {ascending:true});
-    if (!r.error && r.data && r.data.length > 0) return r;
-  }
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book', '%' + book + '%').eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', shortBook).eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', String(chapter)).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  var testAll = await supabaseClient.from('bible').select('book,book_code,chapter').limit(3);
-  if (testAll.error) {
-    return { data: [], error: testAll.error };
-  }
-  if (!testAll.data || testAll.data.length === 0) {
-    return { data: [], error: { message: "Supabase 'bible' 테이블에 데이터가 전혀 없거나 RLS(보안정책)로 읽기가 차단되어 있습니다." } };
-  }
-
-  var sampleRow = testAll.data[0];
-  return { 
-    data: [], 
-    error: { 
-      message: "'" + book + "' 말씀을 찾지 못했습니다. (DB 실제 데이터 포맷 예시: book='" + (sampleRow.book||'') + "', book_code='" + (sampleRow.book_code||'') + "')" 
-    } 
-  };
-}
-
-function buildReadingChapterList(chapters){
-  if(!chapters || !chapters.length) return [];
-  var books = flattenBooks(OT_BOOKS).concat(flattenBooks(NT_BOOKS));
-  var si = books.findIndex(function(x){return x.book===chapters[0].book && x.chapter===chapters[0].chapter;});
-  var ei = books.findIndex(function(x){return x.book===chapters[chapters.length-1].book && x.chapter===chapters[chapters.length-1].chapter;});
-  if(si<0 || ei<si) return chapters.slice();
-  return books.slice(si,ei+1);
-}
-
-// --- 앱 내 성경 말씀 뷰어 ---
-async function openBibleReader(dateIso, plan, chapters, done){
-  var body = document.getElementById('dailyReadingSheetBody');
-  var progressForReader = await loadReadingProgress(plan.id);
-  var existingRowForReader = progressForReader.find(function(p){ return p.date === dateIso; });
-  var chapterList = buildReadingChapterList(chapters), currentIndex = 0;
-
-  async function renderChapter(){
-    var ch = chapterList[currentIndex];
-    body.innerHTML = '<div class="bible-loading">말씀을 불러오는 중…</div>';
-    var res = await loadBibleChapter(ch.book, ch.chapter);
-    if(res.error){
-      body.innerHTML = '<div class="card"><p style="font-weight:700;color:var(--brick);">말씀을 불러오지 못했어요.</p><p class="savehint" style="margin-top:6px;">'+escapeHtml(res.error.message||'알 수 없는 오류')+'</p></div>';
-      return;
-    }
-    var verses = res.data || [], html = '';
-    html += '<div class="bible-reader-head"><div><p class="savehint">'+niceDate(dateIso)+' · 오늘의 통독</p><h2 class="bible-chapter-title">'+escapeHtml(ch.book)+' '+ch.chapter+'장</h2></div><span class="bible-page-count">'+(currentIndex+1)+' / '+chapterList.length+'장</span></div>';
-    html += '<div class="bible-range-note">통독 범위 · '+formatChapterRange(chapters)+'</div>';
-    if(!verses.length){
-      html += '<div class="card"><p class="empty-inline">이 장의 말씀을 찾지 못했어요.</p></div>';
-    }else{
-      html += '<article class="bible-text">';
-      verses.forEach(function(v){
-        html += '<p class="bible-verse"><sup>'+v.verse+'</sup>'+escapeHtml(v.text)+'</p>';
-      });
-      html += '</article>';
-    }
-    html += '<div class="bible-nav"><button class="btn" id="biblePrevBtn" type="button"'+(currentIndex===0?' disabled':'')+'>‹ 이전 장</button><button class="btn" id="bibleNextBtn" type="button"'+(currentIndex===chapterList.length-1?' disabled':'')+'>다음 장 ›</button></div>';
-    if(currentIndex === chapterList.length-1){
-      if(done){
-        html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);margin-top:10px;"><p style="font-weight:700;color:var(--pine);">✅ 오늘의 통독 완료</p></div>';
-      }else{
-        html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:10px;">읽기 완료</button>';
-      }
-    }else{
-      html += '<p class="savehint" style="text-align:center;margin-top:10px;">마지막 장까지 읽은 후 「읽기 완료」를 눌러주세요.</p>';
-    }
-    body.innerHTML = html;
-    var prev = document.getElementById('biblePrevBtn'), next = document.getElementById('bibleNextBtn');
-    if(prev) prev.addEventListener('click', function(){ currentIndex--; renderChapter(); });
-    if(next) next.addEventListener('click', function(){ currentIndex++; renderChapter(); });
-    var complete = document.getElementById('dr_completeBtn');
-    if(complete) complete.addEventListener('click', async function(){
-      var first = chapters[0], last = chapters[chapters.length-1], rangeFields = { range_start_book: first.book, range_start_chapter: first.chapter, range_end_book: last.book, range_end_chapter: last.chapter };
-      var payload = existingRowForReader
-        ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
-        : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
-      var saveRes = existingRowForReader
-        ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRowForReader.id)
-        : await supabaseClient.from('sg_reading_progress').insert(payload);
-      if(saveRes.error){ showToast('저장 실패: '+saveRes.error.message); return; }
-      showToast('오늘의 통독을 완료했어요! 🎉');
-      done = true;
-      renderChapter();
-    });
-  }
-  await renderChapter();
+  if(!code) return null;
+  return 'https://www.bible.com/bible/88/'+code.toUpperCase()+'.'+chapter; // 88 = 개역한글(KRV)
 }
 
 // ---------- 마이 탭 ----------
@@ -1613,9 +1501,11 @@ async function openDailyReadingForDate(dateIso){
       html += '<a href="'+escapeHtml(targetUrl)+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;">📖 대한성서공회에서 말씀 읽기</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">대한성서공회 웹페이지로 이동하여 말씀을 읽습니다.</p>';
     }else{
-      // youversion (앱 내 성경 뷰어 연결)
-      html += '<button class="btn btn-primary btn-block" id="dr_openReaderBtn" type="button" style="margin-bottom:8px;">📖 성경읽기 (유버전)</button>';
-      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">버튼을 누르면 앱 내에서 성경 본문을 읽을 수 있어요.</p>';
+      var readUrl = youversionReadUrl(startChapter.book, startChapter.chapter);
+      if(readUrl){
+        html += '<a href="'+readUrl+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;">📖 성경읽기 (유버전)</a>';
+        html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">'+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장부터 열려요. 이후 장은 그 페이지 안에서 넘겨서 읽으세요.</p>';
+      }
     }
   }
 
@@ -1627,13 +1517,6 @@ async function openDailyReadingForDate(dateIso){
 
   document.getElementById('dailyReadingSheetBody').innerHTML = html;
   openSheet('dailyReadingSheet');
-
-  var readerBtn = document.getElementById('dr_openReaderBtn');
-  if(readerBtn){
-    readerBtn.addEventListener('click', function(){
-      openBibleReader(dateIso, plan, chapters, done);
-    });
-  }
 
   if(!done){
     var compBtn = document.getElementById('dr_completeBtn');
@@ -1764,7 +1647,7 @@ async function renderSettingsTab(){
     html += '<div class="card" style="margin-bottom:14px;">';
     html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
     html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
-    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (앱 내 뷰어로 구절 보기)</span>';
+    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (유버전 Bible.com 앱/웹으로 연결)</span>';
     html += '</label>';
     html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
     html += '<input type="radio" name="bible_mode" value="bskorea"'+((!currentGroup.bible_reading_mode || currentGroup.bible_reading_mode==='bskorea')?' checked':'')+'> <span>대한성서공회에서 말씀읽기</span>';
