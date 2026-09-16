@@ -611,6 +611,13 @@ async function loadReadingProgress(planId){
   }catch(err){ console.error('loadReadingProgress network error:', err); return []; }
 }
 
+async function loadAllAdminMembersAcrossGroups(){
+  try{
+    var res = await supabaseClient.from('sg_members').select('*').eq('role', 'admin').order('name');
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadAllAdminMembersAcrossGroups error:', err); return []; }
+}
 async function loadActivityTypes(groupId){
   try{
     var res = await supabaseClient.from('sg_activity_types').select('*').eq('group_id', groupId).order('name');
@@ -1494,6 +1501,7 @@ async function renderSettingsTab(){
   var el = document.getElementById('tabContent');
   var currentGroupRes = await supabaseClient.from('sg_groups').select('*').eq('id', currentMember.group_id).limit(1);
   var currentGroup = (currentGroupRes.data && currentGroupRes.data[0]) || { bible_reading_mode: 'bskorea' };
+  currentGroupInfo = currentGroup; // hasPermission()이 최신 권한설정을 참조하도록 전역 캐시도 갱신
 
   var html = '<div class="screen">';
   if(isAdminRole(currentMember.role)){
@@ -1831,6 +1839,42 @@ function openPermissionSettingsScreen(){
   document.getElementById('genericSheetTitle').textContent = '🔐 권한 설정';
   document.getElementById('genericSheetBody').innerHTML = html;
   openSheet('genericSheet');
+
+  // ---- 전체 소그룹의 관리자 멤버 목록 (최고관리자 전용, 소속 그룹 무관하게 전부 조회) ----
+  loadAllAdminMembersAcrossGroups().then(function(adminMembers){
+    var allGroupsMap = {};
+    return loadGroups().then(function(allGroups){
+      allGroups.forEach(function(g){ allGroupsMap[g.id] = g.name; });
+      var section = document.createElement('div');
+      var listHtml = '<p class="field-label-strong" style="margin:16px 0 6px;">🛡️ 전체 관리자 목록 (소그룹 무관)</p>';
+      listHtml += '<div class="card" style="margin-bottom:14px;">';
+      if(adminMembers.length === 0){
+        listHtml += '<p class="empty-inline">관리자 권한을 가진 멤버가 없어요.</p>';
+      }else{
+        adminMembers.forEach(function(m){
+          listHtml += '<div class="member-row"><span>'+escapeHtml(m.name)+' <span class="savehint">('+escapeHtml(allGroupsMap[m.group_id]||'알 수 없는 소그룹')+')</span></span>';
+          listHtml += '<button type="button" class="chip" data-demote-admin="'+m.id+'" style="font-size:0.75rem;padding:6px 10px;">일반으로 변경</button>';
+          listHtml += '</div>';
+        });
+      }
+      listHtml += '</div>';
+      section.innerHTML = listHtml;
+      document.getElementById('genericSheetBody').appendChild(section);
+
+      section.querySelectorAll('[data-demote-admin]').forEach(function(btn){
+        btn.addEventListener('click', async function(){
+          var mid = btn.getAttribute('data-demote-admin');
+          if(!confirm('이 멤버의 권한을 일반 멤버로 바꿀까요?')) return;
+          var res = await supabaseClient.from('sg_members').update({ role: 'member' }).eq('id', mid);
+          if(res.error){ showToast('변경 실패: '+res.error.message); return; }
+          showToast('일반 멤버로 변경했어요.');
+          if(mid === currentMember.id){ currentMember.role = 'member'; }
+          if(members.some(function(mm){ return mm.id === mid; })){ await loadGroupData(currentMember.group_id); }
+          openPermissionSettingsScreen();
+        });
+      });
+    });
+  });
 
   document.querySelectorAll('[data-perm-role]').forEach(function(cb){
     cb.addEventListener('change', async function(){
@@ -2400,7 +2444,7 @@ async function openDateMenu(dateIso){
     c.addEventListener('click', function(){
       var act = activities.find(function(x){ return x.id === c.getAttribute('data-activity-open'); });
       closeSheet('genericSheet');
-      var readOnly = currentMember.role === 'member' && act.created_by && act.created_by !== currentMember.id;
+      var readOnly = currentMember.role === 'member' && act.created_by !== currentMember.id;
       openActivityForm(act, dateIso, readOnly);
     });
   });
@@ -2475,7 +2519,13 @@ async function renderLoginScreen(){
 
     var res = await supabaseClient.from('sg_members').select('*').eq('group_id', groupId).eq('name', name).eq('pin', pin).limit(1);
     if(res.error || !res.data || res.data.length === 0){
-      errEl.textContent = '이름 또는 PIN이 일치하지 않아요.';
+      // 다른 소그룹에 같은 이름+PIN이 있는지 확인해서 더 정확한 안내를 줘요.
+      var otherGroupRes = await supabaseClient.from('sg_members').select('id').eq('name', name).eq('pin', pin).limit(1);
+      if(!otherGroupRes.error && otherGroupRes.data && otherGroupRes.data.length > 0){
+        errEl.textContent = '본인의 소그룹이 일치하지 않아요.';
+      }else{
+        errEl.textContent = '이름 또는 PIN이 일치하지 않아요.';
+      }
       return;
     }
     currentMember = res.data[0];
