@@ -678,6 +678,7 @@ function renderActiveTab(){
 var memberStatPeriodType = 'week'; // 'week' | 'month' | 'year'
 var memberStatAnchor = todayStr(); // 이 날짜가 속한 주/월/연을 기준으로 봄
 var memberListPage = 1;
+var memberStatActivityType = 'all';
 
 function getStatPeriodRange(type, anchor){
   var d = new Date(anchor+'T00:00:00');
@@ -714,10 +715,12 @@ function shiftStatAnchor(type, dir){
   }
 }
 
-function computeAttendanceStats(range){
+function computeAttendanceStats(range, activityTypeFilter){
   var relevantActivityIds = {};
   activities.forEach(function(a){
-    if(!range || (a.date >= range.start && a.date <= range.end)){ relevantActivityIds[a.id] = true; }
+    var inRange = !range || (a.date >= range.start && a.date <= range.end);
+    var matchesType = !activityTypeFilter || activityTypeFilter === 'all' || a.activity_type === activityTypeFilter;
+    if(inRange && matchesType){ relevantActivityIds[a.id] = true; }
   });
   var stats = {};
   members.forEach(function(m){ stats[m.id] = { present:0, total:0 }; });
@@ -780,7 +783,7 @@ async function loadCompletedCountsInRange(planIds, start, end){
 async function renderMembersTab(){
   var el = document.getElementById('tabContent');
   var range = getStatPeriodRange(memberStatPeriodType, memberStatAnchor);
-  var stats = computeAttendanceStats(range);
+  var stats = computeAttendanceStats(range, memberStatActivityType);
   var isAdmin = isAdminRole(currentMember.role);
 
   // 통독 우등/분발 멤버 계산
@@ -815,9 +818,18 @@ async function renderMembersTab(){
   html += '<button class="btn" id="mem_periodNext" type="button" style="padding:6px 10px;">›</button>';
   html += '</div>';
 
+  if(activityTypes.length > 0){
+    html += '<div class="chiprow" id="mem_activityTypeChips" style="margin-bottom:12px;">';
+    html += '<button type="button" class="chip'+(memberStatActivityType==='all'?' selected':'')+'" data-activitytype="all">전체 항목</button>';
+    activityTypes.forEach(function(t){
+      html += '<button type="button" class="chip'+(memberStatActivityType===t.name?' selected':'')+'" data-activitytype="'+escapeHtml(t.name)+'">'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</button>';
+    });
+    html += '</div>';
+  }
+
   // ---- 출석 도넛차트 ----
   html += '<div class="card" style="text-align:center;">';
-  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황 (선택 기간)</p>';
+  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):'')+'</p>';
   var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
   var totalPresentAll = donutData.reduce(function(s,d){ return s+d.value; }, 0);
   html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(donutData, 150, 0.62)+
@@ -865,7 +877,8 @@ async function renderMembersTab(){
       html += '<div style="width:36px;height:36px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:0.9375rem;flex-shrink:0;">👤</div>';
     }
     html += '<div>';
-    html += '<span style="font-weight:600;">'+escapeHtml(m.name)+'</span>';
+    var isBirthdayToday = m.birthday && m.birthday.slice(5) === todayStr().slice(5);
+    html += '<span style="font-weight:600;">'+escapeHtml(m.name)+'</span>'+(isBirthdayToday?' 🎂':'');
     if(m.role==='admin' || m.role==='super_admin') html += roleBadgeHTML(m.role);
     if(m.position) html += ' <span class="savehint">('+escapeHtml(m.position)+')</span>';
     html += '<p class="savehint">출석 '+st.present+'/'+st.total+'회 ('+pct+'%)</p>';
@@ -889,7 +902,11 @@ async function renderMembersTab(){
   }
   html += '</div>';
 
+  html += '<button class="btn btn-block" id="mem_prayerAnswerBtn" type="button" style="margin-top:14px;">🙏 기도응답 현황</button>';
+
   el.innerHTML = html;
+
+  document.getElementById('mem_prayerAnswerBtn').addEventListener('click', openPrayerAnswerScreen);
 
   if(usesPaging){
     var prevBtn = document.getElementById('mem_pagePrev');
@@ -906,6 +923,15 @@ async function renderMembersTab(){
   });
   document.getElementById('mem_periodPrev').addEventListener('click', function(){ shiftStatAnchor(memberStatPeriodType, -1); renderMembersTab(); });
   document.getElementById('mem_periodNext').addEventListener('click', function(){ shiftStatAnchor(memberStatPeriodType, 1); renderMembersTab(); });
+  var typeChipsEl = document.getElementById('mem_activityTypeChips');
+  if(typeChipsEl){
+    typeChipsEl.querySelectorAll('[data-activitytype]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        memberStatActivityType = chip.getAttribute('data-activitytype');
+        renderMembersTab();
+      });
+    });
+  }
 
   if(isAdmin){
     document.getElementById('mem_addBtn').addEventListener('click', function(){ openMemberForm(null); });
@@ -1782,6 +1808,62 @@ function openAnnouncementForm(existing){
 }
 
 // ---------- 캘린더 탭 ----------
+function openPrayerAnswerScreen(){
+  var prayerActivities = activities.filter(function(a){ return a.activity_type === '기도요청'; })
+    .slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); });
+
+  var html = '';
+  if(prayerActivities.length === 0){
+    html += '<p class="empty-inline">등록된 기도요청이 없어요.</p>';
+  }else{
+    var answeredCount = prayerActivities.filter(function(a){ return a.prayer_answered; }).length;
+    html += '<p class="savehint" style="margin-bottom:12px;">전체 '+prayerActivities.length+'건 중 <b style="color:var(--pine);">'+answeredCount+'건 응답됨</b></p>';
+    prayerActivities.forEach(function(a){
+      var presentNames = attendance.filter(function(at){ return at.activity_id === a.id && at.present; })
+        .map(function(at){ var m = members.find(function(mm){ return mm.id === at.member_id; }); return m ? m.name : null; })
+        .filter(Boolean);
+      html += '<div class="card" data-prayer-id="'+a.id+'" style="'+(a.prayer_answered?'background:var(--pine-soft);border-color:var(--pine);':'')+'">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+      html += '<div><p style="font-weight:700;">✝️ '+escapeHtml(a.title)+'</p><p class="savehint">'+niceDate(a.date)+'</p></div>';
+      html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">';
+      html += '<input type="checkbox" class="prayer-answered-check" data-prayer-check="'+a.id+'"'+(a.prayer_answered?' checked':'')+'> <span class="savehint">기도응답</span>';
+      html += '</label></div>';
+      if(a.memo) html += '<p class="savehint" style="margin-top:6px;">'+escapeHtml(a.memo)+'</p>';
+      if(presentNames.length > 0) html += '<p class="savehint" style="margin-top:6px;">참여: '+presentNames.map(escapeHtml).join(', ')+'</p>';
+      html += '<textarea class="prayer-progress-note" data-prayer-note="'+a.id+'" rows="2" placeholder="진행 현황 / 응답 간증 메모" style="margin-top:8px;">'+escapeHtml(a.prayer_progress_note||'')+'</textarea>';
+      html += '<button type="button" class="chip" data-prayer-savenote="'+a.id+'" style="margin-top:6px;font-size:0.75rem;padding:6px 10px;">메모 저장</button>';
+      html += '</div>';
+    });
+  }
+
+  document.getElementById('genericSheetTitle').textContent = '🙏 기도응답 현황';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.querySelectorAll('[data-prayer-check]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      var id = cb.getAttribute('data-prayer-check');
+      var res = await supabaseClient.from('sg_activities').update({ prayer_answered: cb.checked }).eq('id', id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      var act = activities.find(function(x){ return x.id === id; });
+      if(act) act.prayer_answered = cb.checked;
+      showToast(cb.checked ? '기도응답으로 표시했어요.' : '표시를 해제했어요.');
+      openPrayerAnswerScreen();
+    });
+  });
+  document.querySelectorAll('[data-prayer-savenote]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-prayer-savenote');
+      var note = document.querySelector('[data-prayer-note="'+id+'"]').value.trim();
+      var res = await supabaseClient.from('sg_activities').update({ prayer_progress_note: note || null }).eq('id', id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      var act = activities.find(function(x){ return x.id === id; });
+      if(act) act.prayer_progress_note = note || null;
+      showToast('메모를 저장했어요.');
+    });
+  });
+}
+
 function openMonthPickerSheet(){
   var pickerYear = calYear;
   function render(){
@@ -1794,7 +1876,7 @@ function openMonthPickerSheet(){
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
     for(var m=1; m<=12; m++){
       var isCurrent = (pickerYear===calYear && m===calMonth);
-      html += '<button type="button" class="chip'+(isCurrent?' selected':'')+'" data-pick-month="'+m+'" style="padding:14px 0;">'+m+'월</button>';
+      html += '<button type="button" class="chip'+(isCurrent?' selected':'')+'" data-pick-month="'+m+'" style="padding:14px 0;justify-content:center;">'+m+'월</button>';
     }
     html += '</div>';
     document.getElementById('genericSheetBody').innerHTML = html;
