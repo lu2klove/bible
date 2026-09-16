@@ -90,8 +90,8 @@
   .btn-danger{background:var(--brick-soft); border-color:var(--brick); color:var(--brick);}
   .btn-block{width:100%;}
   .card{
-    background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
-    padding:14px; margin-bottom:12px;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
   }
   .chip{
     display:inline-flex; align-items:center; padding:8px 13px; border-radius:999px;
@@ -144,8 +144,9 @@
   }
   .toast.show{opacity:1;}
   .announce-bar{
-    background:var(--amber-soft); border:1px solid var(--amber); border-radius:10px;
+    background:var(--amber-soft); border:1px solid var(--amber); border-radius:14px;
     padding:10px 12px; margin-bottom:14px; font-size:0.8125rem; color:var(--ink);
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
   }
   .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;}
   .cal-dow{font-size:0.6875rem; color:var(--ink-faint); padding:6px 0; font-weight:700;}
@@ -193,6 +194,33 @@
   .switch-toggle .slider::before{content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s;}
   .switch-toggle input:checked + .slider{background:var(--pine);}
   .switch-toggle input:checked + .slider::before{transform:translateX(18px);}
+  .editorial-panel-row{display:flex; gap:10px; margin-bottom:14px; align-items:stretch;}
+  .editorial-card{
+    flex:1; min-width:0; background:#FFFFFF; border-radius:18px; overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column;
+    scroll-snap-align:center; text-decoration:none; color:inherit;
+  }
+  .editorial-badge{
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    padding:9px 6px; border-bottom:1px solid #EFEDF3; font-size:0.625rem; font-weight:800;
+    letter-spacing:0.06em; color:#20241D;
+  }
+  .editorial-image-wrap{width:100%; aspect-ratio:4/3; background:#E4E1EC; overflow:hidden;}
+  .editorial-image-wrap img{width:100%; height:100%; object-fit:cover; display:block;}
+  .editorial-video-fallback{width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:1.5rem; background:#3A3550; color:#fff;}
+  .editorial-body{padding:12px 10px 14px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; flex:1;}
+  .editorial-title{font-size:0.8125rem; font-weight:800; color:#1C1A24; line-height:1.3;}
+  .editorial-subtitle{font-size:0.6875rem; color:#8B85A3; line-height:1.45; margin:0;}
+  .editorial-cta{
+    margin-top:6px; padding:7px 14px; border-radius:999px; border:1px solid #D8D5E3;
+    font-size:0.6875rem; font-weight:700; color:#1C1A24; background:#fff; cursor:pointer;
+  }
+  .editorial-carousel{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:0; scrollbar-width:none; flex:1;}
+  .editorial-carousel::-webkit-scrollbar{display:none;}
+  .editorial-carousel .editorial-card{flex:0 0 100%;}
+  .editorial-dots{display:flex; justify-content:center; gap:5px; margin-top:6px;}
+  .editorial-dots .dot{width:5px; height:5px; border-radius:50%; background:var(--line);}
+  .editorial-dots .dot.active{background:#8B85A3;}
 </style>
 </head>
 <body>
@@ -285,6 +313,12 @@ function youversionReadUrl(book, chapter){
   var code = BSKOREA_BOOK_CODE[book];
   if(!code) return null;
   return 'https://www.bible.com/bible/88/'+code.toUpperCase()+'.'+chapter; // 88 = 개역한글(KRV)
+}
+function getYoutubeThumbnail(url){
+  if(!url) return null;
+  var m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  if(!m) return null;
+  return 'https://img.youtube.com/vi/'+m[1]+'/mqdefault.jpg';
 }
 
 // ---------- 한국 공휴일 ----------
@@ -644,6 +678,17 @@ function applyAppearance(group){
     document.documentElement.style.setProperty('--font-scale', group.font_size_scale || 1);
   }else{
     document.documentElement.style.setProperty('--font-scale', 1);
+  }
+}
+function applyLoginHeaderBg(group){
+  var block = document.getElementById('login_logoBlock');
+  if(!block) return;
+  if(group && group.header_bg_mode === 'custom' && group.header_bg_image){
+    block.style.backgroundImage = 'url(\''+group.header_bg_image+'\')';
+    block.style.backgroundSize = 'cover';
+    block.style.backgroundPosition = 'center';
+  }else{
+    block.style.backgroundImage = 'none';
   }
 }
 
@@ -2070,6 +2115,33 @@ function openPrayerAnswerScreen(){
   });
 }
 
+function openWorshipVideoForm(){
+  var title = (currentGroupInfo && currentGroupInfo.worship_video_title) || '';
+  var url = (currentGroupInfo && currentGroupInfo.worship_video_url) || '';
+  var html = '';
+  html += '<div class="field"><span class="field-label">제목(선택)</span><input type="text" id="worship_title" placeholder="예: 9월 3주 주일예배" value="'+escapeHtml(title)+'"></div>';
+  html += '<div class="field"><span class="field-label">영상 링크(유튜브 등)</span><input type="text" id="worship_url" placeholder="https://www.youtube.com/watch?v=..." value="'+escapeHtml(url)+'"></div>';
+  html += '<p class="savehint">매주 이 링크만 바꿔주시면 캘린더 화면에 자동으로 반영돼요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="worship_saveBtn" type="button" style="margin-top:10px;">저장</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '🎬 주일예배 영상 등록';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('worship_saveBtn').addEventListener('click', async function(){
+    var newTitle = document.getElementById('worship_title').value.trim();
+    var newUrl = document.getElementById('worship_url').value.trim();
+    var res = await supabaseClient.from('sg_groups').update({
+      worship_video_title: newTitle || null, worship_video_url: newUrl || null
+    }).eq('id', currentMember.group_id);
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    currentGroupInfo = Object.assign({}, currentGroupInfo, { worship_video_title: newTitle||null, worship_video_url: newUrl||null });
+    closeSheet('genericSheet');
+    renderCalendarTab();
+    showToast('주일예배 영상을 저장했어요.');
+  });
+}
+
 function openMonthPickerSheet(){
   var pickerYear = calYear;
   function render(){
@@ -2127,6 +2199,66 @@ async function renderCalendarTab(){
       html += '<div class="announce-bar">'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+'</div>';
     });
   }
+
+  // ---- 좌/우 페이지 (최근 소모임 사진 · 주일예배 영상) - 에디토리얼 카드 스타일 ----
+  var recentPhotoActivities = activities.filter(function(a){ return a.photo_image; })
+    .slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); }).slice(0, 6);
+  html += '<div class="editorial-panel-row">';
+
+  // 좌측: 최근 소모임 사진 (여러 장이면 스와이프)
+  html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
+  if(recentPhotoActivities.length === 0){
+    html += '<div class="editorial-card"><div class="editorial-badge">📷 RECENT MOMENT</div>';
+    html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">🖼️</div></div>';
+    html += '<div class="editorial-body"><p class="editorial-title">아직 사진이 없어요</p><p class="editorial-subtitle">소모임 활동에<br>사진을 남겨보세요</p></div></div>';
+  }else{
+    html += '<div class="editorial-carousel" id="cal_photoCarousel">';
+    recentPhotoActivities.forEach(function(a){
+      html += '<button type="button" class="editorial-card" data-recent-photo-open="'+a.id+'" style="border:none;">';
+      html += '<div class="editorial-badge">📷 RECENT MOMENT</div>';
+      html += '<div class="editorial-image-wrap"><img src="'+a.photo_image+'"></div>';
+      html += '<div class="editorial-body">';
+      html += '<p class="editorial-title">'+escapeHtml(a.title)+'</p>';
+      html += '<p class="editorial-subtitle">'+niceDate(a.date)+'</p>';
+      html += '<span class="editorial-cta">자세히 보기 →</span>';
+      html += '</div></button>';
+    });
+    html += '</div>';
+    if(recentPhotoActivities.length > 1){
+      html += '<div class="editorial-dots" id="cal_photoDots">';
+      recentPhotoActivities.forEach(function(a,i){ html += '<span class="dot'+(i===0?' active':'')+'"></span>'; });
+      html += '</div>';
+    }
+  }
+  html += '</div>';
+
+  // 우측: 주일예배 영상
+  html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
+  var worshipUrl = currentGroupInfo && currentGroupInfo.worship_video_url;
+  var worshipTitle = (currentGroupInfo && currentGroupInfo.worship_video_title) || '이번 주 예배';
+  if(worshipUrl){
+    var ytThumb = getYoutubeThumbnail(worshipUrl);
+    html += '<a href="'+escapeHtml(worshipUrl)+'" target="_blank" rel="noopener" class="editorial-card">';
+    html += '<div class="editorial-badge">🎬 SUNDAY WORSHIP</div>';
+    html += '<div class="editorial-image-wrap">';
+    html += ytThumb ? ('<img src="'+ytThumb+'">') : '<div class="editorial-video-fallback">▶️</div>';
+    html += '</div>';
+    html += '<div class="editorial-body">';
+    html += '<p class="editorial-title">'+escapeHtml(worshipTitle)+'</p>';
+    html += '<p class="editorial-subtitle">함께 드리는<br>온라인 예배</p>';
+    html += '<span class="editorial-cta">영상 보기 →</span>';
+    html += '</div></a>';
+  }else{
+    html += '<div class="editorial-card"><div class="editorial-badge">🎬 SUNDAY WORSHIP</div>';
+    html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">▶️</div></div>';
+    html += '<div class="editorial-body"><p class="editorial-title">등록된 영상이 없어요</p><p class="editorial-subtitle">관리자가 곧<br>등록할 예정이에요</p></div></div>';
+  }
+  if(isAdminRole(currentMember.role)){
+    html += '<button type="button" class="chip" id="cal_editWorshipBtn" style="font-size:0.625rem;padding:5px 10px;margin-top:6px;align-self:center;">영상 등록/수정</button>';
+  }
+  html += '</div>';
+
+  html += '</div>';
 
   html += '<div class="card">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
@@ -2186,6 +2318,24 @@ async function renderCalendarTab(){
     renderCalendarTab();
   });
   document.getElementById('cal_monthLabel').addEventListener('click', openMonthPickerSheet);
+  el.querySelectorAll('[data-recent-photo-open]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var act = activities.find(function(x){ return x.id === btn.getAttribute('data-recent-photo-open'); });
+      if(!act) return;
+      var readOnly = currentMember.role === 'member' && act.created_by !== currentMember.id;
+      openActivityForm(act, act.date, readOnly);
+    });
+  });
+  var photoCarouselEl = document.getElementById('cal_photoCarousel');
+  if(photoCarouselEl){
+    var photoDots = document.querySelectorAll('#cal_photoDots .dot');
+    photoCarouselEl.addEventListener('scroll', function(){
+      var idx = Math.round(photoCarouselEl.scrollLeft / photoCarouselEl.clientWidth);
+      photoDots.forEach(function(d,i){ d.classList.toggle('active', i === idx); });
+    });
+  }
+  var editWorshipBtn = document.getElementById('cal_editWorshipBtn');
+  if(editWorshipBtn) editWorshipBtn.addEventListener('click', openWorshipVideoForm);
   el.querySelectorAll('.cal-cell[data-date]').forEach(function(cell){
     cell.addEventListener('click', function(){
       openDateMenu(cell.getAttribute('data-date'));
@@ -2509,7 +2659,7 @@ async function renderLoginScreen(){
 
   var html = '';
   html += '<div class="screen" style="padding-top:60px;">';
-  html += '<div style="text-align:center;margin-bottom:32px;" id="login_logoBlock">';
+  html += '<div style="text-align:center;margin-bottom:32px;padding:24px 16px;border-radius:16px;" id="login_logoBlock">';
   html += '<h1 style="font-size:1.625rem;'+(initialGroup&&initialGroup.logo_color?'color:'+initialGroup.logo_color+';':'')+'">🙏 '+escapeHtml((initialGroup&&initialGroup.logo_title)||'소그룹커뮤')+'</h1>';
   html += '<p class="savehint" style="margin-top:6px;">교회 소그룹 모임 관리</p>';
   html += '</div>';
@@ -2535,6 +2685,7 @@ async function renderLoginScreen(){
   html += '</div>';
 
   app.innerHTML = html;
+  applyLoginHeaderBg(initialGroup);
 
   if(groups.length === 0){
     document.getElementById('login_firstSetupBtn').addEventListener('click', openFirstSetupSheet);
@@ -2546,6 +2697,16 @@ async function renderLoginScreen(){
     var logoBlock = document.getElementById('login_logoBlock');
     logoBlock.querySelector('h1').textContent = '🙏 '+((g&&g.logo_title)||'소그룹커뮤');
     logoBlock.querySelector('h1').style.color = (g&&g.logo_color) || '';
+    applyLoginHeaderBg(g);
+  });
+
+  ['login_name','login_pin'].forEach(function(fieldId){
+    document.getElementById(fieldId).addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter'){
+        ev.preventDefault();
+        document.getElementById('login_btn').click();
+      }
+    });
   });
 
   document.getElementById('login_btn').addEventListener('click', async function(){
