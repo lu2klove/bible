@@ -769,11 +769,9 @@ async function loadBibleChapter(book, chapter){
   var code = BSKOREA_BOOK_CODE[book];
   var queries = [];
 
-  // 1. 대소문자 구분 없는 book_code 필터링 (버전 제한 제거)
   if(code){
     queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code',code).eq('chapter',chapter).order('verse',{ascending:true}));
   }
-  // 2. 책 이름(book) 직접 조회 (버전 제한 제거)
   queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book',book).eq('chapter',chapter).order('verse',{ascending:true}));
 
   for(var i=0;i<queries.length;i++){
@@ -782,7 +780,6 @@ async function loadBibleChapter(book, chapter){
     if(!r.error && r.data && r.data.length > 0) return r;
   }
 
-  // 3. 대체조회: 해당 장(chapter) 데이터 불러온 뒤 필터링
   var fallback=await supabaseClient.from('bible')
     .select('book,book_code,chapter,verse,text')
     .eq('chapter',chapter)
@@ -866,6 +863,9 @@ async function openDailyReadingForDate(dateIso){
   }
 
   var done = existingRow && existingRow.completed;
+  
+  // 통독창 바텀시트를 화면에 올림
+  openSheet('dailyReadingSheet');
   await openBibleReader(dateIso, plan, range.chapters, done);
 }
 
