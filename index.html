@@ -185,6 +185,14 @@
   .weekstrip-circle.today-ring{box-shadow:0 0 0 2px var(--pine);}
   .weekstrip-label{font-size:0.6875rem; color:var(--ink-faint);}
   .weekstrip-label.today-label{color:var(--pine); font-weight:700;}
+  .switch-row{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line);}
+  .switch-row:last-child{border-bottom:none;}
+  .switch-toggle{position:relative; width:44px; height:26px; flex-shrink:0; cursor:pointer;}
+  .switch-toggle input{opacity:0; width:0; height:0;}
+  .switch-toggle .slider{position:absolute; inset:0; background:var(--line); border-radius:999px; transition:background 0.2s;}
+  .switch-toggle .slider::before{content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s;}
+  .switch-toggle input:checked + .slider{background:var(--pine);}
+  .switch-toggle input:checked + .slider::before{transform:translateX(18px);}
 </style>
 </head>
 <body>
@@ -334,6 +342,24 @@ function roleBadgeHTML(role){
   if(role === 'super_admin') return ' <span class="badge badge-admin">👑 최고관리자</span>';
   if(role === 'admin') return ' <span class="badge badge-admin">관리자</span>';
   return '';
+}
+var DEFAULT_PERMISSION_SETTINGS = {
+  admin: { activity_types:true, appearance:true, bible_settings:true, group_management:true },
+  member: { activity_types:false, appearance:false, bible_settings:false, group_management:false }
+};
+function getPermissionSettings(){
+  var saved = (currentGroupInfo && currentGroupInfo.permission_settings) || {};
+  return {
+    admin: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.admin, saved.admin||{}),
+    member: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.member, saved.member||{})
+  };
+}
+function hasPermission(section){
+  if(currentMember.role === 'super_admin') return true;
+  var perms = getPermissionSettings();
+  if(currentMember.role === 'admin') return !!perms.admin[section];
+  if(currentMember.role === 'member') return !!perms.member[section];
+  return false;
 }
 function todayStr(){
   var d = new Date();
@@ -642,7 +668,9 @@ function renderMainApp(){
   html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span>캘린더</button>';
   html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span>멤버</button>';
   html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my"><span class="ico">🙋</span>마이</button>';
-  if(isAdminRole(currentMember.role)){
+  var memberPerms = getPermissionSettings().member;
+  var memberHasAnySettingAccess = memberPerms.activity_types || memberPerms.appearance || memberPerms.bible_settings || memberPerms.group_management;
+  if(isAdminRole(currentMember.role) || memberHasAnySettingAccess){
     html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">⚙️</span>설정</button>';
   }
   html += '</div>';
@@ -1468,6 +1496,7 @@ async function renderSettingsTab(){
   var currentGroup = (currentGroupRes.data && currentGroupRes.data[0]) || { bible_reading_mode: 'bskorea' };
 
   var html = '<div class="screen">';
+  if(isAdminRole(currentMember.role)){
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
   html += '<h2 style="font-size:1rem;">⚙️ 공지 관리</h2>';
   html += '<button class="btn" id="set_addAnnounceBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 공지 등록</button>';
@@ -1486,8 +1515,10 @@ async function renderSettingsTab(){
     });
   }
   html += '</div>';
+  } // isAdminRole 끝 (공지 관리)
 
-  // ---- 소모임 활동 항목 관리 (모든 관리자) ----
+  // ---- 소모임 활동 항목 관리 ----
+  if(hasPermission('activity_types')){
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
   html += '<h2 style="font-size:1rem;">🏷️ 소모임 활동 항목</h2>';
   html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
@@ -1505,8 +1536,10 @@ async function renderSettingsTab(){
     });
   }
   html += '</div>';
+  }
 
   // ---- 로고 / 타이틀 / 헤더 배경 설정 ----
+  if(hasPermission('appearance')){
   html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎨 화면 상단 꾸미기</h2></div>';
   html += '<div class="card" style="margin-bottom:14px;">';
   html += '<div class="field"><span class="field-label">로고 타이틀명</span><input type="text" id="set_logoTitle" placeholder="소그룹커뮤" value="'+escapeHtml(currentGroup.logo_title||'')+'"></div>';
@@ -1557,8 +1590,10 @@ async function renderSettingsTab(){
   html += '</div>';
   html += '<p class="savehint" style="text-align:center;margin-top:6px;" id="set_fontSizeLabel">'+Math.round((currentGroup.font_size_scale||1)*100)+'%</p>';
   html += '</div>';
+  } // hasPermission('appearance') 끝
 
 
+  if(hasPermission('bible_settings')){
   html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">📖 성경보기 설정</h2></div>';
   html += '<div class="card" style="margin-bottom:14px;">';
   html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
@@ -1578,13 +1613,16 @@ async function renderSettingsTab(){
   html += '<button class="btn btn-primary btn-block" id="set_customBibleSaveBtn" type="button" style="margin-top:8px;">저장</button>';
   html += '</div>';
   html += '</div>';
+  } // hasPermission('bible_settings') 끝
 
-  // ---- 소그룹 관리 (최고관리자만) ----
-  if(currentMember.role === 'super_admin'){
+  // ---- 소그룹 관리 ----
+  if(hasPermission('group_management')){
     groups = await loadGroups();
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
     html += '<h2 style="font-size:1rem;">🌱 소그룹 관리</h2>';
-    html += '<button class="btn" id="set_newGroupBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 새 소그룹</button>';
+    if(currentMember.role === 'super_admin'){
+      html += '<button class="btn" id="set_newGroupBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 새 소그룹</button>';
+    }
     html += '</div>';
     html += '<div class="card" style="margin-bottom:24px;">';
     groups.forEach(function(g){
@@ -1597,121 +1635,138 @@ async function renderSettingsTab(){
     html += '</div>';
   }
 
+  if(currentMember.role === 'super_admin'){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🔐 권한 설정</h2></div>';
+    html += '<button class="btn btn-block" id="set_permissionBtn" type="button" style="margin-bottom:24px;">역할별 기능 접근 관리하기</button>';
+  }
+
   el.innerHTML = html;
 
-  document.getElementById('set_addAnnounceBtn').addEventListener('click', function(){ openAnnouncementForm(null); });
-  document.getElementById('set_addTypeBtn').addEventListener('click', function(){ openActivityTypeForm(null); });
-  el.querySelectorAll('[data-announce-edit]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var a = announcements.find(function(x){ return x.id === btn.getAttribute('data-announce-edit'); });
-      openAnnouncementForm(a);
+  if(isAdminRole(currentMember.role)){
+    document.getElementById('set_addAnnounceBtn').addEventListener('click', function(){ openAnnouncementForm(null); });
+    el.querySelectorAll('[data-announce-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var a = announcements.find(function(x){ return x.id === btn.getAttribute('data-announce-edit'); });
+        openAnnouncementForm(a);
+      });
     });
-  });
-  el.querySelectorAll('[data-announce-del]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      await supabaseClient.from('sg_announcements').delete().eq('id', btn.getAttribute('data-announce-del'));
-      await loadGroupData(currentMember.group_id);
-      renderSettingsTab();
-      showToast('삭제했어요.');
+    el.querySelectorAll('[data-announce-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await supabaseClient.from('sg_announcements').delete().eq('id', btn.getAttribute('data-announce-del'));
+        await loadGroupData(currentMember.group_id);
+        renderSettingsTab();
+        showToast('삭제했어요.');
+      });
     });
-  });
-  el.querySelectorAll('[data-type-edit]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var t = activityTypes.find(function(x){ return x.id === btn.getAttribute('data-type-edit'); });
-      openActivityTypeForm(t);
-    });
-  });
-  el.querySelectorAll('[data-type-del]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      await supabaseClient.from('sg_activity_types').delete().eq('id', btn.getAttribute('data-type-del'));
-      await loadGroupData(currentMember.group_id);
-      renderSettingsTab();
-      showToast('삭제했어요.');
-    });
-  });
-  el.querySelectorAll('input[name="bible_mode"]').forEach(function(radio){
-    radio.addEventListener('change', function(){
-      document.getElementById('set_customBibleWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
-      if(radio.value !== 'custom'){
-        supabaseClient.from('sg_groups').update({ bible_reading_mode: radio.value }).eq('id', currentMember.group_id).then(function(){
-          showToast('성경보기 설정을 저장했어요.');
-        });
-      }
-    });
-  });
-  document.getElementById('set_customBibleSaveBtn').addEventListener('click', async function(){
-    var name = document.getElementById('set_customBibleName').value.trim();
-    var url = document.getElementById('set_customBibleUrl').value.trim();
-    if(!name || !url){ showToast('명칭과 주소를 모두 입력해주세요.'); return; }
-    var res = await supabaseClient.from('sg_groups').update({
-      bible_reading_mode: 'custom', custom_bible_name: name, custom_bible_url: url
-    }).eq('id', currentMember.group_id);
-    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
-    showToast('사용자 보기 설정을 저장했어요.');
-  });
+  }
 
-  var currentHeaderBg = currentGroup.header_bg_image || null;
-  wireImageFieldGlobal('set_headerBg', function(){ return currentHeaderBg; }, function(v){ currentHeaderBg = v; }, 'set_headerBgInput', { maxWidth: 640, quality: 0.5 });
-  el.querySelectorAll('input[name="header_bg_mode"]').forEach(function(radio){
-    radio.addEventListener('change', function(){
-      document.getElementById('set_headerBgUploadWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
+  if(hasPermission('activity_types')){
+    document.getElementById('set_addTypeBtn').addEventListener('click', function(){ openActivityTypeForm(null); });
+    el.querySelectorAll('[data-type-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var t = activityTypes.find(function(x){ return x.id === btn.getAttribute('data-type-edit'); });
+        openActivityTypeForm(t);
+      });
     });
-  });
-  var selectedLogoPos = currentGroup.logo_position || 'left';
-  el.querySelectorAll('[data-logo-pos]').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      selectedLogoPos = chip.getAttribute('data-logo-pos');
-      el.querySelectorAll('[data-logo-pos]').forEach(function(c){ c.classList.remove('selected'); });
-      chip.classList.add('selected');
+    el.querySelectorAll('[data-type-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await supabaseClient.from('sg_activity_types').delete().eq('id', btn.getAttribute('data-type-del'));
+        await loadGroupData(currentMember.group_id);
+        renderSettingsTab();
+        showToast('삭제했어요.');
+      });
     });
-  });
-  var selectedTheme = currentGroup.theme || 'default';
-  el.querySelectorAll('[data-theme-pick]').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      selectedTheme = chip.getAttribute('data-theme-pick');
-      el.querySelectorAll('[data-theme-pick]').forEach(function(c){ c.classList.remove('selected'); });
-      chip.classList.add('selected');
-      applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
-    });
-  });
-  var selectedFont = currentGroup.font_family || 'default';
-  el.querySelectorAll('[data-font-pick]').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      selectedFont = chip.getAttribute('data-font-pick');
-      el.querySelectorAll('[data-font-pick]').forEach(function(c){ c.classList.remove('selected'); });
-      chip.classList.add('selected');
-      applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
-    });
-  });
-  document.getElementById('set_fontSizeSlider').addEventListener('input', function(){
-    document.documentElement.style.setProperty('--font-scale', this.value);
-    document.getElementById('set_fontSizeLabel').textContent = Math.round(this.value*100)+'%';
-  });
+  }
 
-  document.getElementById('set_appearanceSaveBtn').addEventListener('click', async function(){
-    var logoTitle = document.getElementById('set_logoTitle').value.trim();
-    var logoColor = document.getElementById('set_logoColor').value;
-    var bgMode = document.querySelector('input[name="header_bg_mode"]:checked').value;
-    var fontScale = parseFloat(document.getElementById('set_fontSizeSlider').value);
-    var updatePayload = {
-      logo_title: logoTitle || null,
-      logo_color: logoColor || null,
-      logo_position: selectedLogoPos,
-      header_bg_mode: bgMode,
-      header_bg_image: bgMode === 'custom' ? currentHeaderBg : null,
-      theme: selectedTheme,
-      font_family: selectedFont,
-      font_size_scale: fontScale
-    };
-    var res = await supabaseClient.from('sg_groups').update(updatePayload).eq('id', currentMember.group_id);
-    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
-    currentGroupInfo = Object.assign({}, currentGroupInfo, updatePayload);
-    renderMainApp();
-    showToast('화면 꾸미기 설정을 저장했어요.');
-  });
+  if(hasPermission('bible_settings')){
+    el.querySelectorAll('input[name="bible_mode"]').forEach(function(radio){
+      radio.addEventListener('change', function(){
+        document.getElementById('set_customBibleWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
+        if(radio.value !== 'custom'){
+          supabaseClient.from('sg_groups').update({ bible_reading_mode: radio.value }).eq('id', currentMember.group_id).then(function(){
+            showToast('성경보기 설정을 저장했어요.');
+          });
+        }
+      });
+    });
+    document.getElementById('set_customBibleSaveBtn').addEventListener('click', async function(){
+      var name = document.getElementById('set_customBibleName').value.trim();
+      var url = document.getElementById('set_customBibleUrl').value.trim();
+      if(!name || !url){ showToast('명칭과 주소를 모두 입력해주세요.'); return; }
+      var res = await supabaseClient.from('sg_groups').update({
+        bible_reading_mode: 'custom', custom_bible_name: name, custom_bible_url: url
+      }).eq('id', currentMember.group_id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      showToast('사용자 보기 설정을 저장했어요.');
+    });
+  }
 
-  if(currentMember.role === 'super_admin'){
-    document.getElementById('set_newGroupBtn').addEventListener('click', openNewGroupSheet);
+  if(hasPermission('appearance')){
+    var currentHeaderBg = currentGroup.header_bg_image || null;
+    wireImageFieldGlobal('set_headerBg', function(){ return currentHeaderBg; }, function(v){ currentHeaderBg = v; }, 'set_headerBgInput', { maxWidth: 640, quality: 0.5 });
+    el.querySelectorAll('input[name="header_bg_mode"]').forEach(function(radio){
+      radio.addEventListener('change', function(){
+        document.getElementById('set_headerBgUploadWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
+      });
+    });
+    var selectedLogoPos = currentGroup.logo_position || 'left';
+    el.querySelectorAll('[data-logo-pos]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedLogoPos = chip.getAttribute('data-logo-pos');
+        el.querySelectorAll('[data-logo-pos]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+      });
+    });
+    var selectedTheme = currentGroup.theme || 'default';
+    el.querySelectorAll('[data-theme-pick]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedTheme = chip.getAttribute('data-theme-pick');
+        el.querySelectorAll('[data-theme-pick]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+        applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+      });
+    });
+    var selectedFont = currentGroup.font_family || 'default';
+    el.querySelectorAll('[data-font-pick]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedFont = chip.getAttribute('data-font-pick');
+        el.querySelectorAll('[data-font-pick]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+        applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+      });
+    });
+    document.getElementById('set_fontSizeSlider').addEventListener('input', function(){
+      document.documentElement.style.setProperty('--font-scale', this.value);
+      document.getElementById('set_fontSizeLabel').textContent = Math.round(this.value*100)+'%';
+    });
+
+    document.getElementById('set_appearanceSaveBtn').addEventListener('click', async function(){
+      var logoTitle = document.getElementById('set_logoTitle').value.trim();
+      var logoColor = document.getElementById('set_logoColor').value;
+      var bgMode = document.querySelector('input[name="header_bg_mode"]:checked').value;
+      var fontScale = parseFloat(document.getElementById('set_fontSizeSlider').value);
+      var updatePayload = {
+        logo_title: logoTitle || null,
+        logo_color: logoColor || null,
+        logo_position: selectedLogoPos,
+        header_bg_mode: bgMode,
+        header_bg_image: bgMode === 'custom' ? currentHeaderBg : null,
+        theme: selectedTheme,
+        font_family: selectedFont,
+        font_size_scale: fontScale
+      };
+      var res = await supabaseClient.from('sg_groups').update(updatePayload).eq('id', currentMember.group_id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      currentGroupInfo = Object.assign({}, currentGroupInfo, updatePayload);
+      renderMainApp();
+      showToast('화면 꾸미기 설정을 저장했어요.');
+    });
+  }
+
+  if(hasPermission('group_management')){
+    if(currentMember.role === 'super_admin'){
+      document.getElementById('set_newGroupBtn').addEventListener('click', openNewGroupSheet);
+    }
     el.querySelectorAll('[data-group-edit]').forEach(function(btn){
       btn.addEventListener('click', function(){ openGroupEditSheet(btn.getAttribute('data-group-edit')); });
     });
@@ -1726,6 +1781,69 @@ async function renderSettingsTab(){
       });
     });
   }
+
+  if(currentMember.role === 'super_admin'){
+    document.getElementById('set_permissionBtn').addEventListener('click', openPermissionSettingsScreen);
+  }
+
+  var anySettingVisible = isAdminRole(currentMember.role) || hasPermission('activity_types') || hasPermission('appearance') || hasPermission('bible_settings') || hasPermission('group_management');
+  if(!anySettingVisible){
+    el.innerHTML = '<div class="screen"><p class="empty-inline" style="padding-top:40px;text-align:center;">현재 열람 가능한 설정 항목이 없어요.<br>최고관리자에게 문의해주세요.</p></div>';
+  }
+}
+
+function openPermissionSettingsScreen(){
+  var perms = getPermissionSettings();
+  var sectionLabels = [
+    ['activity_types','🏷️ 소모임 활동 항목'],
+    ['appearance','🎨 화면 상단 꾸미기 (테마·폰트 포함)'],
+    ['bible_settings','📖 성경보기 설정'],
+    ['group_management','🌱 소그룹 관리']
+  ];
+
+  var html = '';
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">👑 최고관리자</p>';
+  html += '<p class="savehint" style="margin-bottom:16px;">모든 기능이 항상 활성화돼요. (조정 불가)</p>';
+
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">🛡️ 관리자</p>';
+  html += '<div class="card" style="margin-bottom:16px;">';
+  sectionLabels.forEach(function(s){
+    html += '<div class="switch-row"><span>'+s[1]+'</span>';
+    html += '<label class="switch-toggle"><input type="checkbox" data-perm-role="admin" data-perm-key="'+s[0]+'"'+(perms.admin[s[0]]?' checked':'')+'><span class="slider"></span></label>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">🙋 일반 멤버</p>';
+  html += '<div class="card" style="margin-bottom:12px;">';
+  sectionLabels.forEach(function(s){
+    html += '<div class="switch-row"><span>'+s[1]+'</span>';
+    html += '<label class="switch-toggle"><input type="checkbox" data-perm-role="member" data-perm-key="'+s[0]+'"'+(perms.member[s[0]]?' checked':'')+'><span class="slider"></span></label>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div class="card" style="margin-bottom:14px;">';
+  html += '<p class="savehint">아래 두 가지는 일반 멤버에게 항상 적용되는 고정 정책이에요 (조정 불가).</p>';
+  html += '<p class="savehint" style="margin-top:8px;">• 소모임활동 수정: 본인이 등록한 활동만 수정 가능하고, 다른 멤버가 등록한 활동은 보기만 할 수 있어요.</p>';
+  html += '<p class="savehint" style="margin-top:6px;">• 기도응답현황: 전체 목록은 읽기만 가능하고, 본인이 등록한 기도요청에 한해 기도응답 체크·메모를 남길 수 있어요.</p>';
+  html += '</div>';
+
+  document.getElementById('genericSheetTitle').textContent = '🔐 권한 설정';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.querySelectorAll('[data-perm-role]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      var role = cb.getAttribute('data-perm-role');
+      var key = cb.getAttribute('data-perm-key');
+      var updated = getPermissionSettings();
+      updated[role][key] = cb.checked;
+      var res = await supabaseClient.from('sg_groups').update({ permission_settings: updated }).eq('id', currentMember.group_id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); cb.checked = !cb.checked; return; }
+      currentGroupInfo = Object.assign({}, currentGroupInfo, { permission_settings: updated });
+      showToast('권한 설정을 저장했어요.');
+    });
+  });
 }
 
 function openActivityTypeForm(existing){
@@ -1822,16 +1940,21 @@ function openPrayerAnswerScreen(){
       var presentNames = attendance.filter(function(at){ return at.activity_id === a.id && at.present; })
         .map(function(at){ var m = members.find(function(mm){ return mm.id === at.member_id; }); return m ? m.name : null; })
         .filter(Boolean);
+      var canEdit = isAdminRole(currentMember.role) || a.created_by === currentMember.id;
       html += '<div class="card" data-prayer-id="'+a.id+'" style="'+(a.prayer_answered?'background:var(--pine-soft);border-color:var(--pine);':'')+'">';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
       html += '<div><p style="font-weight:700;">✝️ '+escapeHtml(a.title)+'</p><p class="savehint">'+niceDate(a.date)+'</p></div>';
       html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">';
-      html += '<input type="checkbox" class="prayer-answered-check" data-prayer-check="'+a.id+'"'+(a.prayer_answered?' checked':'')+'> <span class="savehint">기도응답</span>';
+      html += '<input type="checkbox" class="prayer-answered-check" data-prayer-check="'+a.id+'"'+(a.prayer_answered?' checked':'')+(canEdit?'':' disabled')+'> <span class="savehint">기도응답</span>';
       html += '</label></div>';
       if(a.memo) html += '<p class="savehint" style="margin-top:6px;">'+escapeHtml(a.memo)+'</p>';
       if(presentNames.length > 0) html += '<p class="savehint" style="margin-top:6px;">참여: '+presentNames.map(escapeHtml).join(', ')+'</p>';
-      html += '<textarea class="prayer-progress-note" data-prayer-note="'+a.id+'" rows="2" placeholder="진행 현황 / 응답 간증 메모" style="margin-top:8px;">'+escapeHtml(a.prayer_progress_note||'')+'</textarea>';
-      html += '<button type="button" class="chip" data-prayer-savenote="'+a.id+'" style="margin-top:6px;font-size:0.75rem;padding:6px 10px;">메모 저장</button>';
+      html += '<textarea class="prayer-progress-note" data-prayer-note="'+a.id+'" rows="2" placeholder="진행 현황 / 응답 간증 메모" style="margin-top:8px;"'+(canEdit?'':' disabled')+'>'+escapeHtml(a.prayer_progress_note||'')+'</textarea>';
+      if(canEdit){
+        html += '<button type="button" class="chip" data-prayer-savenote="'+a.id+'" style="margin-top:6px;font-size:0.75rem;padding:6px 10px;">메모 저장</button>';
+      }else{
+        html += '<p class="savehint" style="margin-top:6px;">다른 멤버가 등록한 기도요청이라 보기만 가능해요.</p>';
+      }
       html += '</div>';
     });
   }
@@ -1988,9 +2111,9 @@ async function renderCalendarTab(){
 }
 
 // ---------- 소모임 활동 등록 / 출석 체크 ----------
-function openActivityForm(existing, dateIso){
+function openActivityForm(existing, dateIso, readOnly){
   var e = existing || {};
-  document.getElementById('activitySheetTitle').textContent = existing ? '✏️ 소모임 활동 수정' : '➕ 소모임 활동 등록';
+  document.getElementById('activitySheetTitle').textContent = readOnly ? '👁️ 소모임 활동 (보기 전용)' : (existing ? '✏️ 소모임 활동 수정' : '➕ 소모임 활동 등록');
 
   var existingAttendance = existing ? attendance.filter(function(a){ return a.activity_id === existing.id; }) : [];
   var presentIds = {};
@@ -2046,15 +2169,29 @@ function openActivityForm(existing, dateIso){
   html += '</div>';
 
   html += '<div class="row2" style="margin-top:14px;">';
-  html += '<button class="btn btn-block" id="act_cancelBtn" type="button">취소</button>';
-  html += '<button class="btn btn-primary btn-block" id="act_saveBtn" type="button">'+(existing?'수정 완료':'등록')+'</button>';
+  html += '<button class="btn btn-block" id="act_cancelBtn" type="button">'+(readOnly?'닫기':'취소')+'</button>';
+  if(!readOnly){
+    html += '<button class="btn btn-primary btn-block" id="act_saveBtn" type="button">'+(existing?'수정 완료':'등록')+'</button>';
+  }
   html += '</div>';
-  if(existing){
+  if(existing && !readOnly){
     html += '<button class="btn btn-danger btn-block" id="act_deleteBtn" type="button" style="margin-top:8px;">이 활동 삭제</button>';
+  }
+  if(readOnly){
+    html += '<p class="savehint" style="text-align:center;margin-top:10px;">다른 멤버가 등록한 활동이라 보기만 가능해요.</p>';
   }
 
   document.getElementById('activitySheetBody').innerHTML = html;
   openSheet('activitySheet');
+
+  if(readOnly){
+    document.getElementById('activitySheetBody').querySelectorAll('input, select, textarea, button').forEach(function(el2){
+      if(el2.id === 'act_cancelBtn') return;
+      el2.disabled = true;
+    });
+    document.getElementById('act_cancelBtn').addEventListener('click', function(){ closeSheet('activitySheet'); });
+    return;
+  }
 
   function applyPrayerModeUI(){
     var typeSelect = document.getElementById('act_type');
@@ -2164,6 +2301,7 @@ function openActivityForm(existing, dateIso){
       location_lat: currentLat, location_lng: currentLng,
       receipt_image: currentReceiptImage, photo_image: currentPhotoImage
     };
+    if(!existing) payload.created_by = currentMember.id;
     var res = existing
       ? await supabaseClient.from('sg_activities').update(payload).eq('id', activityId)
       : await supabaseClient.from('sg_activities').insert(payload);
@@ -2262,7 +2400,8 @@ async function openDateMenu(dateIso){
     c.addEventListener('click', function(){
       var act = activities.find(function(x){ return x.id === c.getAttribute('data-activity-open'); });
       closeSheet('genericSheet');
-      openActivityForm(act, dateIso);
+      var readOnly = currentMember.role === 'member' && act.created_by && act.created_by !== currentMember.id;
+      openActivityForm(act, dateIso, readOnly);
     });
   });
 }
