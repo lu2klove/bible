@@ -224,6 +224,19 @@
   .editorial-dots .dot{width:5px; height:5px; border-radius:50%; background:var(--line);}
   .editorial-dots .dot.active{background:#8B85A3;}
   .ig-calendar-card{background:#FFFFFF; border:none; border-radius:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
+
+  /* ---- 성경 본문 읽기 전용 스타일 ---- */
+  .bible-reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+  .bible-chapter-title{font-size:1.4375rem;margin-top:3px;}
+  .bible-page-count{font-size:0.75rem;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
+  .bible-range-note{background:var(--pine-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:var(--ink-soft);margin-bottom:14px;}
+  .bible-text{font-family:var(--font-heading);background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
+  .bible-verse{font-size:1.0625rem;line-height:1.9;margin:0 0 10px;letter-spacing:-.01em;}
+  .bible-verse:last-child{margin-bottom:0;}
+  .bible-verse sup{font-family:var(--font-body);font-size:0.6875rem;color:var(--pine);font-weight:700;margin-right:6px;vertical-align:top;line-height:1.7;}
+  .bible-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .bible-nav .btn:disabled{opacity:.35;cursor:default;}
+  .bible-loading{text-align:center;padding:50px 10px;color:var(--ink-faint);font-size:0.8125rem;}
 </style>
 </head>
 <body>
@@ -289,8 +302,6 @@ if(window.supabase && window.supabase.createClient){
 }
 
 // ---------- 성경 데이터 (구약 39권 929장 / 신약 27권 260장) ----------
-// 대한성서공회(bskorea.or.kr) 성경읽기 페이지 딥링크용 책 코드.
-// 성경 본문 자체는 저작권이 있어 앱에 담지 않고, 공식 사이트로 바로 연결해요.
 var BSKOREA_BOOK_CODE = {
   '창세기':'gen','출애굽기':'exo','레위기':'lev','민수기':'num','신명기':'deu',
   '여호수아':'jos','사사기':'jdg','룻기':'rut','사무엘상':'1sa','사무엘하':'2sa',
@@ -315,7 +326,7 @@ function bskoreaReadUrl(book, chapter){
 function youversionReadUrl(book, chapter){
   var code = BSKOREA_BOOK_CODE[book];
   if(!code) return null;
-  return 'https://www.bible.com/bible/88/'+code.toUpperCase()+'.'+chapter; // 88 = 개역한글(KRV)
+  return 'https://www.bible.com/bible/88/'+code.toUpperCase()+'.'+chapter;
 }
 function getYoutubeThumbnail(url){
   if(!url) return null;
@@ -325,8 +336,6 @@ function getYoutubeThumbnail(url){
 }
 
 // ---------- 한국 공휴일 ----------
-// 음력 기반(설날/추석/부처님오신날)이나 대체공휴일은 계산이 복잡해서, 연도별로
-// 실제 날짜를 확인해 하드코딩했어요. 새해가 오면 이 목록에 추가해줘야 해요.
 var KR_HOLIDAYS = {
   '2025-01-01':'신정', '2025-01-28':'설날 연휴', '2025-01-29':'설날', '2025-01-30':'설날 연휴',
   '2025-03-01':'삼일절', '2025-03-03':'삼일절 대체공휴일', '2025-05-05':'어린이날/부처님오신날',
@@ -425,7 +434,8 @@ function compressImageToDataURL(file, callback, maxWidthOverride, qualityOverrid
   };
   reader.readAsDataURL(file);
 }
-// ---------- 지도에서 장소 찾기 (Leaflet + OpenStreetMap, API키 불필요) ----------
+
+// ---------- 지도에서 장소 찾기 ----------
 var mapSearchLeafletMap = null;
 var mapSearchMarker = null;
 function openMapSearchSheet(onSelect){
@@ -442,11 +452,11 @@ function openMapSearchSheet(onSelect){
   document.getElementById('mapSearchSheetBody').innerHTML = html;
   openSheet('mapSearchSheet');
 
-  var selected = null; // { name, lat, lng }
+  var selected = null;
 
   setTimeout(function(){
     if(mapSearchLeafletMap){ mapSearchLeafletMap.remove(); mapSearchLeafletMap = null; }
-    mapSearchLeafletMap = L.map('mapsearch_mapEl').setView([37.5665, 126.9780], 12); // 기본 서울
+    mapSearchLeafletMap = L.map('mapsearch_mapEl').setView([37.5665, 126.9780], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
     }).addTo(mapSearchLeafletMap);
@@ -478,7 +488,7 @@ function openMapSearchSheet(onSelect){
         return;
       }
       resultsEl.innerHTML = '';
-      data.forEach(function(item, idx){
+      data.forEach(function(item){
         var row = document.createElement('div');
         row.className = 'card';
         row.style.cursor = 'pointer';
@@ -582,7 +592,7 @@ function daysBetweenInclusive(startStr, endStr){
 }
 
 // ---------- 앱 상태 ----------
-var currentMember = null; // { id, group_id, name, role }
+var currentMember = null;
 var LOCAL_SESSION_KEY = 'soggroupcommu_session_v1';
 var groups = [];
 var members = [];
@@ -592,11 +602,11 @@ var announcements = [];
 var readingPlans = [];
 var activityTypes = [];
 var readingProgress = [];
-var activeTab = 'calendar'; // calendar | members | my | settings
-var calYear, calMonth; // 1-12
+var activeTab = 'calendar';
+var calYear, calMonth;
 var selectedCalDate = null;
 
-// ---------- 데이터 로드/저장 (Supabase) ----------
+// ---------- 데이터 로드/저장 ----------
 async function loadGroups(){
   try{
     var res = await supabaseClient.from('sg_groups').select('*').order('name');
@@ -630,7 +640,6 @@ async function loadAttendance(activityIds){
 }
 async function loadAnnouncements(groupId){
   try{
-    // 만료일이 지난 공지는 자동으로 정리(삭제)해요.
     await supabaseClient.from('sg_announcements').delete().eq('group_id', groupId).lt('expires_at', todayStr()).not('expires_at', 'is', null);
     var res = await supabaseClient.from('sg_announcements').select('*').eq('group_id', groupId).order('created_at', {ascending:false});
     if(res.error){ console.error(res.error); return []; }
@@ -771,15 +780,15 @@ function renderActiveTab(){
 }
 
 // ---------- 멤버 탭 ----------
-var memberStatPeriodType = 'week'; // 'week' | 'month' | 'year'
-var memberStatAnchor = todayStr(); // 이 날짜가 속한 주/월/연을 기준으로 봄
+var memberStatPeriodType = 'week';
+var memberStatAnchor = todayStr();
 var memberListPage = 1;
 var memberStatActivityType = 'all';
 
 function getStatPeriodRange(type, anchor){
   var d = new Date(anchor+'T00:00:00');
   if(type === 'week'){
-    var dow = d.getDay(); // 0=일
+    var dow = d.getDay();
     var start = addDays(anchor, -dow);
     var end = addDays(anchor, 6-dow);
     var s = new Date(start+'T00:00:00'), e = new Date(end+'T00:00:00');
@@ -793,7 +802,6 @@ function getStatPeriodRange(type, anchor){
     var end2 = y+'-'+String(m+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
     return { start: start2, end: end2, label: y+'년 '+(m+1)+'월' };
   }
-  // year
   var y2 = d.getFullYear();
   return { start: y2+'-01-01', end: y2+'-12-31', label: y2+'년' };
 }
@@ -802,9 +810,9 @@ function shiftStatAnchor(type, dir){
   if(type === 'week'){
     memberStatAnchor = addDays(memberStatAnchor, dir*7);
   }else if(type === 'month'){
-    var y = d.getFullYear(), m = d.getMonth() + dir; // m can go negative or >11
+    var y = d.getFullYear(), m = d.getMonth() + dir;
     var newY = y + Math.floor(m/12);
-    var newM = ((m % 12) + 12) % 12; // 0-11, normalized
+    var newM = ((m % 12) + 12) % 12;
     memberStatAnchor = newY+'-'+String(newM+1).padStart(2,'0')+'-01';
   }else{
     memberStatAnchor = (d.getFullYear()+dir)+'-01-01';
@@ -831,7 +839,6 @@ function computeAttendanceStats(range, activityTypeFilter){
 
 var DONUT_COLORS = ['#3F6357','#A8452F','#B8791E','#2B6FCB','#8A7B4E','#6B4E8A','#4E8A7A','#C25B8A'];
 function renderDonutSVG(dataArr, size, holeRatio){
-  // dataArr: [{label, value, color}]
   size = size || 140;
   holeRatio = holeRatio || 0.6;
   var total = dataArr.reduce(function(s,d){ return s+d.value; }, 0);
@@ -882,7 +889,6 @@ async function renderMembersTab(){
   var stats = computeAttendanceStats(range, memberStatActivityType);
   var isAdmin = isAdminRole(currentMember.role);
 
-  // 통독 우등/분발 멤버 계산
   var memberIds = members.map(function(m){ return m.id; });
   var plansByMember = await loadLatestPlansForMembers(memberIds);
   var planIds = Object.keys(plansByMember).map(function(mid){ return plansByMember[mid].id; });
@@ -901,7 +907,6 @@ async function renderMembersTab(){
   if(isAdmin){ html += '<button class="btn" id="mem_addBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 멤버 추가</button>'; }
   html += '</div>';
 
-  // ---- 기간 선택 ----
   html += '<div class="chiprow" id="mem_periodChips" style="margin-bottom:8px;">';
   ['week','month','year'].forEach(function(t){
     var label = t==='week'?'주':(t==='month'?'월':'연');
@@ -923,7 +928,6 @@ async function renderMembersTab(){
     html += '</div>';
   }
 
-  // ---- 출석 도넛차트 ----
   html += '<div class="card" style="text-align:center;">';
   html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):'')+'</p>';
   var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
@@ -938,7 +942,6 @@ async function renderMembersTab(){
   });
   html += '</div></div>';
 
-  // ---- 통독 우등/분발 멤버 ----
   if(readingRanking.length > 0){
     html += '<div class="card">';
     html += '<p class="field-label-strong" style="margin-bottom:10px;">📖 통독 현황 (선택 기간 읽은 날 수)</p>';
@@ -1130,7 +1133,6 @@ async function openMemberForm(existing){
     }
     if(res.error){ showToast('저장 실패: '+res.error.message); return; }
 
-    // 본인 계정을 다른 소그룹으로 옮긴 경우, 현재 세션도 그 소그룹 기준으로 갱신해요.
     var reloadGroupId = currentMember.group_id;
     if(existing && existing.id === currentMember.id && movedToGroupId){
       currentMember.group_id = movedToGroupId;
@@ -1144,9 +1146,7 @@ async function openMemberForm(existing){
   });
 }
 
-// ---------- 성경통독 계산 ----------
-// 시작일~종료일 사이 매일, 순서대로 성경 장(chapter)을 균등 배분해서
-// 그 날 읽어야 할 범위(시작책/장 ~ 끝책/장)를 계산해요.
+// ---------- 성경통독 계산 및 본문 조회 ----------
 function computeReadingPlanDayRange(plan, dateIso){
   var books = plan.testament === 'OT' ? OT_BOOKS : (plan.testament === 'NT' ? NT_BOOKS : OT_BOOKS.concat(NT_BOOKS));
   var flat = flattenBooks(books);
@@ -1154,10 +1154,9 @@ function computeReadingPlanDayRange(plan, dateIso){
   var totalDays = daysBetweenInclusive(plan.start_date, plan.end_date);
   if(totalDays <= 0) return null;
 
-  var dayIndex = daysBetweenInclusive(plan.start_date, dateIso) - 1; // 0-based
+  var dayIndex = daysBetweenInclusive(plan.start_date, dateIso) - 1;
   if(dayIndex < 0 || dayIndex >= totalDays) return null;
 
-  // 각 날짜가 담당할 장의 [start,end) 인덱스 범위를 균등 배분(나머지는 앞쪽 날짜에 1장씩 더).
   var base = Math.floor(totalChapters / totalDays);
   var extra = totalChapters % totalDays;
   var startIdx = dayIndex * base + Math.min(dayIndex, extra);
@@ -1182,8 +1181,6 @@ function formatChapterRange(chapters){
   }
   return first.book+' '+first.chapter+'장 ~ '+last.book+' '+last.chapter+'장';
 }
-// 통독 설정 저장 시점에 DB에 확정 저장해 둔 하루치 범위를 문자열로 만들어요.
-// (예전에 만들어진 통독 계획이라 확정 저장된 값이 없으면, 그때만 즉석 계산으로 보완해요.)
 function formatStoredRange(progressRow, plan){
   if(progressRow && progressRow.range_start_book){
     return formatChapterRange([
@@ -1203,6 +1200,114 @@ function getStoredStartChapter(progressRow, plan, dateIso){
   }
   var range = computeReadingPlanDayRange(plan, dateIso);
   return range && range.chapters[0] ? range.chapters[0] : null;
+}
+
+// --- Supabase DB 성경 본문 쿼리 (강화된 5단계 검색 및 진단 포함) ---
+async function loadBibleChapter(book, chapter){
+  var code = BSKOREA_BOOK_CODE[book];
+  var shortBook = book.slice(0, 1);
+  var cNum = Number(chapter);
+
+  var r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  if (code) {
+    r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code', code).eq('chapter', cNum).order('verse', {ascending:true});
+    if (!r.error && r.data && r.data.length > 0) return r;
+  }
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book', '%' + book + '%').eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', shortBook).eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', String(chapter)).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  var testAll = await supabaseClient.from('bible').select('book,book_code,chapter').limit(3);
+  if (testAll.error) {
+    return { data: [], error: testAll.error };
+  }
+  if (!testAll.data || testAll.data.length === 0) {
+    return { data: [], error: { message: "Supabase 'bible' 테이블에 데이터가 전혀 없거나 RLS(보안정책)로 읽기가 차단되어 있습니다." } };
+  }
+
+  var sampleRow = testAll.data[0];
+  return { 
+    data: [], 
+    error: { 
+      message: "'" + book + "' 말씀을 찾지 못했습니다. (DB 실제 데이터 포맷 예시: book='" + (sampleRow.book||'') + "', book_code='" + (sampleRow.book_code||'') + "')" 
+    } 
+  };
+}
+
+function buildReadingChapterList(chapters){
+  if(!chapters || !chapters.length) return [];
+  var books = flattenBooks(OT_BOOKS).concat(flattenBooks(NT_BOOKS));
+  var si = books.findIndex(function(x){return x.book===chapters[0].book && x.chapter===chapters[0].chapter;});
+  var ei = books.findIndex(function(x){return x.book===chapters[chapters.length-1].book && x.chapter===chapters[chapters.length-1].chapter;});
+  if(si<0 || ei<si) return chapters.slice();
+  return books.slice(si,ei+1);
+}
+
+// --- 앱 내 성경 말씀 뷰어 ---
+async function openBibleReader(dateIso, plan, chapters, done){
+  var body = document.getElementById('dailyReadingSheetBody');
+  var progressForReader = await loadReadingProgress(plan.id);
+  var existingRowForReader = progressForReader.find(function(p){ return p.date === dateIso; });
+  var chapterList = buildReadingChapterList(chapters), currentIndex = 0;
+
+  async function renderChapter(){
+    var ch = chapterList[currentIndex];
+    body.innerHTML = '<div class="bible-loading">말씀을 불러오는 중…</div>';
+    var res = await loadBibleChapter(ch.book, ch.chapter);
+    if(res.error){
+      body.innerHTML = '<div class="card"><p style="font-weight:700;color:var(--brick);">말씀을 불러오지 못했어요.</p><p class="savehint" style="margin-top:6px;">'+escapeHtml(res.error.message||'알 수 없는 오류')+'</p></div>';
+      return;
+    }
+    var verses = res.data || [], html = '';
+    html += '<div class="bible-reader-head"><div><p class="savehint">'+niceDate(dateIso)+' · 오늘의 통독</p><h2 class="bible-chapter-title">'+escapeHtml(ch.book)+' '+ch.chapter+'장</h2></div><span class="bible-page-count">'+(currentIndex+1)+' / '+chapterList.length+'장</span></div>';
+    html += '<div class="bible-range-note">통독 범위 · '+formatChapterRange(chapters)+'</div>';
+    if(!verses.length){
+      html += '<div class="card"><p class="empty-inline">이 장의 말씀을 찾지 못했어요.</p></div>';
+    }else{
+      html += '<article class="bible-text">';
+      verses.forEach(function(v){
+        html += '<p class="bible-verse"><sup>'+v.verse+'</sup>'+escapeHtml(v.text)+'</p>';
+      });
+      html += '</article>';
+    }
+    html += '<div class="bible-nav"><button class="btn" id="biblePrevBtn" type="button"'+(currentIndex===0?' disabled':'')+'>‹ 이전 장</button><button class="btn" id="bibleNextBtn" type="button"'+(currentIndex===chapterList.length-1?' disabled':'')+'>다음 장 ›</button></div>';
+    if(currentIndex === chapterList.length-1){
+      if(done){
+        html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);margin-top:10px;"><p style="font-weight:700;color:var(--pine);">✅ 오늘의 통독 완료</p></div>';
+      }else{
+        html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:10px;">읽기 완료</button>';
+      }
+    }else{
+      html += '<p class="savehint" style="text-align:center;margin-top:10px;">마지막 장까지 읽은 후 「읽기 완료」를 눌러주세요.</p>';
+    }
+    body.innerHTML = html;
+    var prev = document.getElementById('biblePrevBtn'), next = document.getElementById('bibleNextBtn');
+    if(prev) prev.addEventListener('click', function(){ currentIndex--; renderChapter(); });
+    if(next) next.addEventListener('click', function(){ currentIndex++; renderChapter(); });
+    var complete = document.getElementById('dr_completeBtn');
+    if(complete) complete.addEventListener('click', async function(){
+      var first = chapters[0], last = chapters[chapters.length-1], rangeFields = { range_start_book: first.book, range_start_chapter: first.chapter, range_end_book: last.book, range_end_chapter: last.chapter };
+      var payload = existingRowForReader
+        ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
+        : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
+      var saveRes = existingRowForReader
+        ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRowForReader.id)
+        : await supabaseClient.from('sg_reading_progress').insert(payload);
+      if(saveRes.error){ showToast('저장 실패: '+saveRes.error.message); return; }
+      showToast('오늘의 통독을 완료했어요! 🎉');
+      done = true;
+      renderChapter();
+    });
+  }
+  await renderChapter();
 }
 
 // ---------- 마이 탭 ----------
@@ -1240,9 +1345,8 @@ async function renderMyTab(){
     var testamentLabel = plan.testament==='OT' ? '구약' : (plan.testament==='NT' ? '신약' : '구약+신약 전체');
     html += '<p class="savehint" style="margin-top:8px;">'+testamentLabel+' · '+plan.start_date+' ~ '+plan.end_date+'</p>';
 
-    // ---- 진행상태 계산 ----
     var daysElapsed = Math.max(1, daysBetweenInclusive(plan.start_date, todayStr()));
-    var diff = daysElapsed - completedCount; // 양수=느림, 음수=빠름, 0=정상
+    var diff = daysElapsed - completedCount;
     var paceRate = daysElapsed > 0 ? (completedCount / daysElapsed) : 0;
     var remainingUnits = Math.max(0, totalDays - completedCount);
     var expectedCompletionText;
@@ -1262,14 +1366,12 @@ async function renderMyTab(){
 
     html += '<div class="reading-carousel" id="readingCarousel">';
 
-    // 패널 1: 통계 카드 3개
     html += '<div class="reading-panel"><div style="display:flex;gap:8px;">';
     html += '<div class="stat-mini-card"><p class="stat-label">진행중</p><p class="stat-value">'+daysElapsed+'</p><p class="stat-sub">일차 / '+totalDays+'일</p></div>';
     html += '<div class="stat-mini-card"><p class="stat-label">읽은 날</p><p class="stat-value" style="color:'+(diff>0?'var(--amber)':'var(--pine)')+';">'+completedCount+'</p><p class="stat-sub">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행')) +'</p></div>';
     html += '<div class="stat-mini-card"><p class="stat-label">📅 예상완독일</p><p class="stat-value" style="font-size:0.9375rem;">'+expectedCompletionText+'</p></div>';
     html += '</div></div>';
 
-    // 패널 2: 자전거 진행바
     html += '<div class="reading-panel">';
     html += '<div style="margin:8px 0 6px;position:relative;height:26px;">';
     html += '<div class="progress-bar-bg" style="position:absolute;top:9px;left:0;right:0;"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>';
@@ -1279,7 +1381,6 @@ async function renderMyTab(){
     html += '<p class="savehint" style="text-align:center;">목표기간 : '+plan.start_date+' ~ '+plan.end_date+'</p>';
     html += '</div>';
 
-    // 패널 3: 안읽은지 N일 지남 경고 (또는 잘하고 있어요 메시지)
     html += '<div class="reading-panel"><div style="display:flex;align-items:center;gap:12px;">';
     if(daysSinceLastRead >= 1){
       html += '<div><p style="font-weight:800;color:var(--brick);font-size:1rem;">안 읽은지 '+daysSinceLastRead+'일 지났습니다.</p>';
@@ -1292,7 +1393,6 @@ async function renderMyTab(){
     }
     html += '</div></div>';
 
-    // 패널 4: 최근 7일 스트립
     html += '<div class="reading-panel">';
     html += '<p class="field-label-strong" style="text-align:center;margin-bottom:12px;">최근 7일 통독 기록</p>';
     html += '<div class="weekstrip-row">';
@@ -1309,7 +1409,7 @@ async function renderMyTab(){
     }
     html += '</div></div>';
 
-    html += '</div>'; // .reading-carousel
+    html += '</div>';
     html += '<div class="carousel-dots" id="readingCarouselDots">';
     for(var di=0; di<4; di++){ html += '<span class="dot'+(di===0?' active':'')+'" data-dot="'+di+'"></span>'; }
     html += '</div>';
@@ -1322,8 +1422,7 @@ async function renderMyTab(){
       if(p.completed) completedDates[p.date] = true;
     });
 
-    // 날짜를 월별로 묶어요.
-    var monthGroups = {}; // 'YYYY-MM' -> [dateStr, ...]
+    var monthGroups = {};
     var monthOrder = [];
     for(var i=0; i<totalDays; i++){
       var d = addDays(plan.start_date, i);
@@ -1331,7 +1430,6 @@ async function renderMyTab(){
       if(!monthGroups[ym]){ monthGroups[ym] = []; monthOrder.push(ym); }
       monthGroups[ym].push(d);
     }
-    // 기본으로 오늘이 속한 달(통독 기간 안이면)을 펼쳐둬요.
     var todayYm = todayStr().slice(0,7);
     if(monthGroups[todayYm] && expandedReadingMonths[todayYm] === undefined){ expandedReadingMonths[todayYm] = true; }
 
@@ -1446,8 +1544,6 @@ function openReadingSettingsSheet(existingPlan){
     var res = await supabaseClient.from('sg_reading_plans').insert(payload);
     if(res.error){ showToast('저장 실패: '+res.error.message); return; }
 
-    // 이 시점에 매일의 장절 범위를 확정해서 저장해요. 나중에 설정을 다시 바꿔도
-    // 이미 확정된(과거) 날짜의 장절은 절대 바뀌지 않아요.
     var totalDaysNew = daysBetweenInclusive(start, end);
     var progressRows = [];
     for(var i=0; i<totalDaysNew; i++){
@@ -1472,6 +1568,7 @@ function openReadingSettingsSheet(existingPlan){
   });
 }
 
+// --- 오늘의 통독 팝업 (성경읽기 버튼 클릭 시 앱 내 성경 뷰어 연동) ---
 async function openDailyReadingForDate(dateIso){
   var plan = await loadReadingPlan(currentMember.id);
   var html = '';
@@ -1485,13 +1582,11 @@ async function openDailyReadingForDate(dateIso){
   var existingRow = progress.find(function(p){ return p.date === dateIso; });
   var done = existingRow && existingRow.completed;
 
-  // 통독 설정을 저장할 때 이미 이 날짜의 범위가 확정 저장돼 있으면 그 값을 써요
-  // (나중에 설정을 바꿔도 안 바뀌게). 레거시 계획이라 저장된 값이 없으면 그때만 즉석 계산해요.
   var chapters;
   if(existingRow && existingRow.range_start_book){
     chapters = [
-      { book: existingRow.range_start_book, chapter: existingRow.range_start_chapter },
-      { book: existingRow.range_end_book, chapter: existingRow.range_end_chapter }
+      { book: existingRow.range_start_book, chapter: Number(existingRow.range_start_chapter) },
+      { book: existingRow.range_end_book, chapter: Number(existingRow.range_end_chapter) }
     ];
   }else{
     var liveRange = computeReadingPlanDayRange(plan, dateIso);
@@ -1518,14 +1613,9 @@ async function openDailyReadingForDate(dateIso){
       html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;">📖 '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">등록해둔 주소로 연결돼요. 오늘 읽을 범위('+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장~)를 직접 찾아 읽으세요.</p>';
     }else{
-      var readUrl = readingMode === 'youversion'
-        ? youversionReadUrl(startChapter.book, startChapter.chapter)
-        : bskoreaReadUrl(startChapter.book, startChapter.chapter);
       var linkLabel = readingMode === 'youversion' ? '📖 성경읽기 (유버전)' : '📖 대한성서공회에서 말씀 읽기';
-      if(readUrl){
-        html += '<a href="'+readUrl+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;">'+linkLabel+'</a>';
-        html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">'+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장부터 열려요. 이후 장은 그 페이지 안에서 넘겨서 읽으세요.</p>';
-      }
+      html += '<button class="btn btn-primary btn-block" id="dr_openReaderBtn" type="button" style="margin-bottom:8px;">'+linkLabel+'</button>';
+      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">버튼을 누르면 앱 내에서 성경 본문을 읽을 수 있어요.</p>';
     }
   }
 
@@ -1538,155 +1628,159 @@ async function openDailyReadingForDate(dateIso){
   document.getElementById('dailyReadingSheetBody').innerHTML = html;
   openSheet('dailyReadingSheet');
 
-  if(!done){
-    document.getElementById('dr_completeBtn').addEventListener('click', async function(){
-      var first = chapters[0], last = chapters[chapters.length-1];
-      var rangeFields = {
-        range_start_book: first.book, range_start_chapter: first.chapter,
-        range_end_book: last.book, range_end_chapter: last.chapter
-      };
-      var payload = existingRow
-        ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
-        : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
-      var res = existingRow
-        ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRow.id)
-        : await supabaseClient.from('sg_reading_progress').insert(payload);
-      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
-      showToast('오늘의 통독을 완료했어요! 🎉');
-      openDailyReadingForDate(dateIso);
+  var readerBtn = document.getElementById('dr_openReaderBtn');
+  if(readerBtn){
+    readerBtn.addEventListener('click', function(){
+      openBibleReader(dateIso, plan, chapters, done);
     });
+  }
+
+  if(!done){
+    var compBtn = document.getElementById('dr_completeBtn');
+    if(compBtn){
+      compBtn.addEventListener('click', async function(){
+        var first = chapters[0], last = chapters[chapters.length-1];
+        var rangeFields = {
+          range_start_book: first.book, range_start_chapter: first.chapter,
+          range_end_book: last.book, range_end_chapter: last.chapter
+        };
+        var payload = existingRow
+          ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
+          : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
+        var res = existingRow
+          ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRow.id)
+          : await supabaseClient.from('sg_reading_progress').insert(payload);
+        if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+        showToast('오늘의 통독을 완료했어요! 🎉');
+        openDailyReadingForDate(dateIso);
+      });
+    }
   }
 }
 
-// ---------- 설정 탭 (관리자 전용: 공지 관리) ----------
+// ---------- 설정 탭 ----------
 async function renderSettingsTab(){
   var el = document.getElementById('tabContent');
   var currentGroupRes = await supabaseClient.from('sg_groups').select('*').eq('id', currentMember.group_id).limit(1);
   var currentGroup = (currentGroupRes.data && currentGroupRes.data[0]) || { bible_reading_mode: 'bskorea' };
-  currentGroupInfo = currentGroup; // hasPermission()이 최신 그룹 정보를 참조하도록 전역 캐시도 갱신
-  await loadSystemSettings(); // 권한설정은 시스템 전체 단일 설정이므로 항상 최신으로 다시 불러옴
+  currentGroupInfo = currentGroup;
+  await loadSystemSettings();
 
   var html = '<div class="screen">';
   if(isAdminRole(currentMember.role)){
-  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-  html += '<h2 style="font-size:1rem;">⚙️ 공지 관리</h2>';
-  html += '<button class="btn" id="set_addAnnounceBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 공지 등록</button>';
-  html += '</div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<h2 style="font-size:1rem;">⚙️ 공지 관리</h2>';
+    html += '<button class="btn" id="set_addAnnounceBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 공지 등록</button>';
+    html += '</div>';
 
-  html += '<div class="card" style="margin-bottom:14px;">';
-  if(announcements.length === 0){
-    html += '<p class="empty-inline">등록된 공지가 없어요.</p>';
-  }else{
-    announcements.forEach(function(a){
-      html += '<div class="member-row"><span>'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+(a.expires_at?'<br><span class="savehint">'+a.expires_at+'까지</span>':'')+'</span>';
-      html += '<div style="display:flex;gap:6px;">';
-      html += '<button class="chip" data-announce-edit="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
-      html += '<button class="chip" data-announce-del="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
-      html += '</div></div>';
-    });
+    html += '<div class="card" style="margin-bottom:14px;">';
+    if(announcements.length === 0){
+      html += '<p class="empty-inline">등록된 공지가 없어요.</p>';
+    }else{
+      announcements.forEach(function(a){
+        html += '<div class="member-row"><span>'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+(a.expires_at?'<br><span class="savehint">'+a.expires_at+'까지</span>':'')+'</span>';
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button class="chip" data-announce-edit="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
+        html += '<button class="chip" data-announce-del="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
   }
-  html += '</div>';
-  } // isAdminRole 끝 (공지 관리)
 
-  // ---- 소모임 활동 항목 관리 ----
   if(hasPermission('activity_types')){
-  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-  html += '<h2 style="font-size:1rem;">🏷️ 소모임 활동 항목</h2>';
-  html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
-  html += '</div>';
-  html += '<div class="card" style="margin-bottom:14px;">';
-  if(activityTypes.length === 0){
-    html += '<p class="empty-inline">등록된 항목이 없어요. (예: 정기모임, 기도요청, 심방 등)</p>';
-  }else{
-    activityTypes.forEach(function(t){
-      html += '<div class="member-row"><span>'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</span>';
-      html += '<div style="display:flex;gap:6px;">';
-      html += '<button class="chip" data-type-edit="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
-      html += '<button class="chip" data-type-del="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
-      html += '</div></div>';
-    });
-  }
-  html += '</div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<h2 style="font-size:1rem;">🏷️ 소모임 활동 항목</h2>';
+    html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
+    html += '</div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    if(activityTypes.length === 0){
+      html += '<p class="empty-inline">등록된 항목이 없어요. (예: 정기모임, 기도요청, 심방 등)</p>';
+    }else{
+      activityTypes.forEach(function(t){
+        html += '<div class="member-row"><span>'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</span>';
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button class="chip" data-type-edit="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
+        html += '<button class="chip" data-type-del="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
   }
 
-  // ---- 로고 / 타이틀 / 헤더 배경 설정 ----
   if(hasPermission('appearance')){
-  html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎨 화면 상단 꾸미기</h2></div>';
-  html += '<div class="card" style="margin-bottom:14px;">';
-  html += '<div class="field"><span class="field-label">로고 타이틀명</span><input type="text" id="set_logoTitle" placeholder="소그룹커뮤" value="'+escapeHtml(currentGroup.logo_title||'')+'"></div>';
-  html += '<div class="row2"><div style="flex:1;"><span class="field-label">로고 색상</span><input type="color" id="set_logoColor" value="'+(currentGroup.logo_color||'#20241D')+'" style="width:100%;height:38px;padding:2px;border-radius:8px;border:1px solid var(--line);"></div>';
-  html += '<div style="flex:2;"><span class="field-label">로고 위치</span><div class="chiprow">';
-  [['left','좌'],['center','중'],['right','우']].forEach(function(p){
-    html += '<button type="button" class="chip'+((currentGroup.logo_position||'left')===p[0]?' selected':'')+'" data-logo-pos="'+p[0]+'">'+p[1]+'</button>';
-  });
-  html += '</div></div></div>';
-  html += '<p class="field-label" style="margin-top:12px;">상단 타이틀 바 배경</p>';
-  html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
-  html += '<input type="radio" name="header_bg_mode" value="default"'+(currentGroup.header_bg_mode!=='custom'?' checked':'')+'> <span>기본</span>';
-  html += '</label>';
-  html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
-  html += '<input type="radio" name="header_bg_mode" value="custom"'+(currentGroup.header_bg_mode==='custom'?' checked':'')+'> <span>배경설정</span>';
-  html += '<span class="savehint">(권장 1200×300px, 가로로 긴 이미지)</span>';
-  html += '</label>';
-  html += '<div id="set_headerBgUploadWrap" style="display:'+(currentGroup.header_bg_mode==='custom'?'block':'none')+';margin-top:8px;">';
-  html += '<input type="file" accept="image/*" id="set_headerBgInput" style="display:none;">';
-  html += '<div id="set_headerBgPreview">'+imagePreviewHTML('set_headerBg', currentGroup.header_bg_image)+'</div>';
-  html += '</div>';
-  html += '<button class="btn btn-primary btn-block" id="set_appearanceSaveBtn" type="button" style="margin-top:12px;">저장</button>';
-  html += '</div>';
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎨 화면 상단 꾸미기</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<div class="field"><span class="field-label">로고 타이틀명</span><input type="text" id="set_logoTitle" placeholder="소그룹커뮤" value="'+escapeHtml(currentGroup.logo_title||'')+'"></div>';
+    html += '<div class="row2"><div style="flex:1;"><span class="field-label">로고 색상</span><input type="color" id="set_logoColor" value="'+(currentGroup.logo_color||'#20241D')+'" style="width:100%;height:38px;padding:2px;border-radius:8px;border:1px solid var(--line);"></div>';
+    html += '<div style="flex:2;"><span class="field-label">로고 위치</span><div class="chiprow">';
+    [['left','좌'],['center','중'],['right','우']].forEach(function(p){
+      html += '<button type="button" class="chip'+((currentGroup.logo_position||'left')===p[0]?' selected':'')+'" data-logo-pos="'+p[0]+'">'+p[1]+'</button>';
+    });
+    html += '</div></div></div>';
+    html += '<p class="field-label" style="margin-top:12px;">상단 타이틀 바 배경</p>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
+    html += '<input type="radio" name="header_bg_mode" value="default"'+(currentGroup.header_bg_mode!=='custom'?' checked':'')+'> <span>기본</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
+    html += '<input type="radio" name="header_bg_mode" value="custom"'+(currentGroup.header_bg_mode==='custom'?' checked':'')+'> <span>배경설정</span>';
+    html += '<span class="savehint">(권장 1200×300px, 가로로 긴 이미지)</span>';
+    html += '</label>';
+    html += '<div id="set_headerBgUploadWrap" style="display:'+(currentGroup.header_bg_mode==='custom'?'block':'none')+';margin-top:8px;">';
+    html += '<input type="file" accept="image/*" id="set_headerBgInput" style="display:none;">';
+    html += '<div id="set_headerBgPreview">'+imagePreviewHTML('set_headerBg', currentGroup.header_bg_image)+'</div>';
+    html += '</div>';
+    html += '<button class="btn btn-primary btn-block" id="set_appearanceSaveBtn" type="button" style="margin-top:12px;">저장</button>';
+    html += '</div>';
 
-  // ---- 테마 설정 ----
-  html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🌈 테마 설정</h2></div>';
-  html += '<div class="card" style="margin-bottom:14px;">';
-  html += '<div class="chiprow">';
-  [['default','기본(그린)'],['blue','블루'],['rose','로즈'],['dark','다크']].forEach(function(t){
-    html += '<button type="button" class="chip'+((currentGroup.theme||'default')===t[0]?' selected':'')+'" data-theme-pick="'+t[0]+'">'+t[1]+'</button>';
-  });
-  html += '</div></div>';
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🌈 테마 설정</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<div class="chiprow">';
+    [['default','기본(그린)'],['blue','블루'],['rose','로즈'],['dark','다크']].forEach(function(t){
+      html += '<button type="button" class="chip'+((currentGroup.theme||'default')===t[0]?' selected':'')+'" data-theme-pick="'+t[0]+'">'+t[1]+'</button>';
+    });
+    html += '</div></div>';
 
-  // ---- 폰트 / 글자크기 ----
-  html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🔤 폰트 · 글자크기</h2></div>';
-  html += '<div class="card" style="margin-bottom:14px;">';
-  html += '<p class="field-label" style="margin-bottom:6px;">폰트</p>';
-  html += '<div class="chiprow" style="margin-bottom:14px;">';
-  [['default','기본'],['gothic','고딕'],['serif','명조']].forEach(function(f){
-    html += '<button type="button" class="chip'+((currentGroup.font_family||'default')===f[0]?' selected':'')+'" data-font-pick="'+f[0]+'">'+f[1]+'</button>';
-  });
-  html += '</div>';
-  html += '<p class="field-label" style="margin-bottom:6px;">글자 크기</p>';
-  html += '<div style="display:flex;align-items:center;gap:10px;">';
-  html += '<span style="font-size:0.75rem;">가</span>';
-  html += '<input type="range" id="set_fontSizeSlider" min="0.85" max="1.3" step="0.05" value="'+(currentGroup.font_size_scale||1)+'" style="flex:1;">';
-  html += '<span style="font-size:1.3rem;">가</span>';
-  html += '</div>';
-  html += '<p class="savehint" style="text-align:center;margin-top:6px;" id="set_fontSizeLabel">'+Math.round((currentGroup.font_size_scale||1)*100)+'%</p>';
-  html += '</div>';
-  } // hasPermission('appearance') 끝
-
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🔤 폰트 · 글자크기</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<p class="field-label" style="margin-bottom:6px;">폰트</p>';
+    html += '<div class="chiprow" style="margin-bottom:14px;">';
+    [['default','기본'],['gothic','고딕'],['serif','명조']].forEach(function(f){
+      html += '<button type="button" class="chip'+((currentGroup.font_family||'default')===f[0]?' selected':'')+'" data-font-pick="'+f[0]+'">'+f[1]+'</button>';
+    });
+    html += '</div>';
+    html += '<p class="field-label" style="margin-bottom:6px;">글자 크기</p>';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<span style="font-size:0.75rem;">가</span>';
+    html += '<input type="range" id="set_fontSizeSlider" min="0.85" max="1.3" step="0.05" value="'+(currentGroup.font_size_scale||1)+'" style="flex:1;">';
+    html += '<span style="font-size:1.3rem;">가</span>';
+    html += '</div>';
+    html += '<p class="savehint" style="text-align:center;margin-top:6px;" id="set_fontSizeLabel">'+Math.round((currentGroup.font_size_scale||1)*100)+'%</p>';
+    html += '</div>';
+  }
 
   if(hasPermission('bible_settings')){
-  html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">📖 성경보기 설정</h2></div>';
-  html += '<div class="card" style="margin-bottom:14px;">';
-  html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
-  html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
-  html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (유버전 Bible.com 앱/웹으로 연결)</span>';
-  html += '</label>';
-  html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
-  html += '<input type="radio" name="bible_mode" value="bskorea"'+((!currentGroup.bible_reading_mode || currentGroup.bible_reading_mode==='bskorea')?' checked':'')+'> <span>대한성서공회에서 말씀읽기</span>';
-  html += '</label>';
-  html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
-  html += '<input type="radio" name="bible_mode" value="custom"'+(currentGroup.bible_reading_mode==='custom'?' checked':'')+'> <span>사용자 보기</span>';
-  html += '</label>';
-  html += '<div id="set_customBibleWrap" style="display:'+(currentGroup.bible_reading_mode==='custom'?'block':'none')+';margin-top:8px;padding-left:4px;">';
-  html += '<div class="field"><span class="field-label">버튼에 표시할 명칭</span><input type="text" id="set_customBibleName" placeholder="예: 우리교회 성경읽기" value="'+escapeHtml(currentGroup.custom_bible_name||'')+'"></div>';
-  html += '<div class="field"><span class="field-label">연결할 주소(URL)</span><input type="text" id="set_customBibleUrl" placeholder="https://..." value="'+escapeHtml(currentGroup.custom_bible_url||'')+'"></div>';
-  html += '<p class="savehint">이 주소로 바로 연결돼요. 장(chapter) 단위 자동 이동은 지원하지 않아요.</p>';
-  html += '<button class="btn btn-primary btn-block" id="set_customBibleSaveBtn" type="button" style="margin-top:8px;">저장</button>';
-  html += '</div>';
-  html += '</div>';
-  } // hasPermission('bible_settings') 끝
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">📖 성경보기 설정</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (유버전 Bible.com 앱/웹으로 연결)</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="bskorea"'+((!currentGroup.bible_reading_mode || currentGroup.bible_reading_mode==='bskorea')?' checked':'')+'> <span>대한성서공회에서 말씀읽기</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="custom"'+(currentGroup.bible_reading_mode==='custom'?' checked':'')+'> <span>사용자 보기</span>';
+    html += '</label>';
+    html += '<div id="set_customBibleWrap" style="display:'+(currentGroup.bible_reading_mode==='custom'?'block':'none')+';margin-top:8px;padding-left:4px;">';
+    html += '<div class="field"><span class="field-label">버튼에 표시할 명칭</span><input type="text" id="set_customBibleName" placeholder="예: 우리교회 성경읽기" value="'+escapeHtml(currentGroup.custom_bible_name||'')+'"></div>';
+    html += '<div class="field"><span class="field-label">연결할 주소(URL)</span><input type="text" id="set_customBibleUrl" placeholder="https://..." value="'+escapeHtml(currentGroup.custom_bible_url||'')+'"></div>';
+    html += '<p class="savehint">이 주소로 바로 연결돼요. 장(chapter) 단위 자동 이동은 지원하지 않아요.</p>';
+    html += '<button class="btn btn-primary btn-block" id="set_customBibleSaveBtn" type="button" style="margin-top:8px;">저장</button>';
+    html += '</div>';
+    html += '</div>';
+  }
 
-  // ---- 주일예배 영상 관리 ----
   if(hasPermission('worship_video')){
     html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎬 주일예배 영상 관리</h2></div>';
     html += '<div class="card" style="margin-bottom:14px;">';
@@ -1697,7 +1791,6 @@ async function renderSettingsTab(){
     html += '</div>';
   }
 
-  // ---- 소그룹 관리 ----
   if(hasPermission('group_management')){
     groups = await loadGroups();
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
@@ -1921,7 +2014,6 @@ function openPermissionSettingsScreen(){
   document.getElementById('genericSheetBody').innerHTML = html;
   openSheet('genericSheet');
 
-  // ---- 전체 멤버 목록 (최고관리자 전용, 소속 그룹 무관하게 전부 조회 + 역할 변경) ----
   Promise.all([loadAllMembersAcrossGroups(), loadGroups()]).then(function(results){
     var allMembers = results[0];
     var allGroups = results[1];
@@ -2202,7 +2294,6 @@ function openMonthPickerSheet(){
 async function renderCalendarTab(){
   var el = document.getElementById('tabContent');
 
-  // 이번 달에 통독 완료한 날짜들을 미리 조회해서 캘린더에 표시해요.
   var completedReadingDates = {};
   var plan = await loadReadingPlan(currentMember.id);
   if(plan){
@@ -2212,7 +2303,7 @@ async function renderCalendarTab(){
 
   var html = '<div class="screen">';
 
-  var todayMD = todayStr().slice(5); // 'MM-DD'
+  var todayMD = todayStr().slice(5);
   var birthdayMembers = members.filter(function(m){ return m.birthday && m.birthday.slice(5) === todayMD; });
   birthdayMembers.forEach(function(m){
     html += '<div class="announce-bar" style="background:var(--pine-soft);border-color:var(--pine);">🎂 오늘은 '+escapeHtml(m.name)+'님 생일이에요! 축하해주세요 🎉</div>';
@@ -2225,12 +2316,10 @@ async function renderCalendarTab(){
     });
   }
 
-  // ---- 좌/우 페이지 (최근 소모임 사진 · 주일예배 영상) - 에디토리얼 카드 스타일 ----
   var recentPhotoActivities = activities.filter(function(a){ return a.photo_image; })
     .slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); }).slice(0, 6);
   html += '<div class="editorial-panel-row">';
 
-  // 좌측: 최근 소모임 사진 (여러 장이면 스와이프)
   html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
   if(recentPhotoActivities.length === 0){
     html += '<div class="editorial-card"><div class="editorial-badge">📷 RECENT MOMENT</div>';
@@ -2256,7 +2345,6 @@ async function renderCalendarTab(){
   }
   html += '</div>';
 
-  // 우측: 주일예배 영상
   html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
   var worshipUrl = currentGroupInfo && currentGroupInfo.worship_video_url;
   var worshipTitle = (currentGroupInfo && currentGroupInfo.worship_video_title) || '이번 주 예배';
@@ -2361,7 +2449,6 @@ async function renderCalendarTab(){
   });
 }
 
-// ---------- 소모임 활동 등록 / 출석 체크 ----------
 function openActivityForm(existing, dateIso, readOnly){
   var e = existing || {};
   document.getElementById('activitySheetTitle').textContent = readOnly ? '👁️ 소모임 활동 (보기 전용)' : (existing ? '✏️ 소모임 활동 수정' : '➕ 소모임 활동 등록');
@@ -2560,7 +2647,6 @@ function openActivityForm(existing, dateIso, readOnly){
 
     var isPrayerSave = payload.activity_type === '기도요청';
 
-    // 출석 upsert (기도요청은 출석체크 항목 자체를 비활성화했으니 건너뛰어요)
     if(!isPrayerSave){
       var attendanceRows = members.map(function(m){
         return { id: uid(), activity_id: activityId, member_id: m.id, present: !!toggledPresent[m.id] };
@@ -2571,7 +2657,6 @@ function openActivityForm(existing, dateIso, readOnly){
       }
     }
 
-    // 기도요청 + "공지에 등록해서 합심기도 하기" 체크 시 공지 자동 생성
     var prayerCheck = document.getElementById('act_prayerAnnounceCheck');
     if(isPrayerSave && prayerCheck && prayerCheck.checked){
       var prayerExpiresInput = document.getElementById('act_prayerAnnounceExpires');
@@ -2657,7 +2742,6 @@ async function openDateMenu(dateIso){
   });
 }
 
-
 // ---------- 로그인 ----------
 function saveSession(memberId){
   try{ localStorage.setItem(LOCAL_SESSION_KEY, memberId); }catch(e){}
@@ -2737,7 +2821,6 @@ async function renderLoginScreen(){
 
     var res = await supabaseClient.from('sg_members').select('*').eq('group_id', groupId).eq('name', name).eq('pin', pin).limit(1);
     if(res.error || !res.data || res.data.length === 0){
-      // 다른 소그룹에 같은 이름+PIN이 있는지 확인해서 더 정확한 안내를 줘요.
       var otherGroupRes = await supabaseClient.from('sg_members').select('id').eq('name', name).eq('pin', pin).limit(1);
       if(!otherGroupRes.error && otherGroupRes.data && otherGroupRes.data.length > 0){
         errEl.textContent = '본인의 소그룹이 일치하지 않아요.';
