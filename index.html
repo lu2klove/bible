@@ -35,7 +35,7 @@
     background:var(--paper); color:var(--ink);
     -webkit-tap-highlight-color:transparent;
   }
-  h1,h2,h3{font-family:\'Noto Serif KR\',serif; margin:0;}
+  h1,h2,h3{font-family:'Noto Serif KR',serif; margin:0;}
   input,select,textarea,button{font-family:inherit; font-size:15px;}
   input[type="text"],input[type="password"],input[type="number"],input[type="date"],select,textarea{
     width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px;
@@ -102,7 +102,7 @@
   }
   .sheet.open{transform:translateY(0);}
   .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
-  .sheet-title{font-size:17px; font-weight:700; font-family:\'Noto Serif KR\',serif;}
+  .sheet-title{font-size:17px; font-weight:700; font-family:'Noto Serif KR',serif;}
   .sheet-close{background:none; border:none; font-size:20px; color:var(--ink-faint); cursor:pointer;}
   .toast{
     position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
@@ -134,7 +134,7 @@
   .bible-chapter-title{font-size:23px;margin-top:3px;}
   .bible-page-count{font-size:12px;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
   .bible-range-note{background:var(--pine-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink-soft);margin-bottom:14px;}
-  .bible-text{font-family:\'Noto Serif KR\',serif;background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
+  .bible-text{font-family:'Noto Serif KR',serif;background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
   .bible-verse{font-size:17px;line-height:1.9;margin:0 0 10px;letter-spacing:-.01em;}
   .bible-verse:last-child{margin-bottom:0;}
   .bible-verse sup{font-family:'IBM Plex Sans KR','Noto Sans KR',sans-serif;font-size:11px;color:var(--pine);font-weight:700;margin-right:6px;vertical-align:top;line-height:1.7;}
@@ -766,30 +766,30 @@ function openReadingSettingsSheet(existingPlan){
 }
 
 async function loadBibleChapter(book, chapter){
-  // KRV 본문은 book_code/book/chapter 어느 한 조건이 달라도 찾을 수 있도록 조회합니다.
   var code = BSKOREA_BOOK_CODE[book];
   var queries = [];
 
+  // 1. 대소문자 구분 없는 book_code 필터링 (버전 제한 제거)
   if(code){
-    queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('version','KRV').eq('book_code',code).eq('chapter',chapter).order('verse',{ascending:true}));
+    queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code',code).eq('chapter',chapter).order('verse',{ascending:true}));
   }
-  queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('version','KRV').eq('book',book).eq('chapter',chapter).order('verse',{ascending:true}));
+  // 2. 책 이름(book) 직접 조회 (버전 제한 제거)
+  queries.push(supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book',book).eq('chapter',chapter).order('verse',{ascending:true}));
 
   for(var i=0;i<queries.length;i++){
     var r=await queries[i];
     if(r.error) console.error('Bible query error:',r.error);
-    if(!r.error && r.data && r.data.length) return r;
+    if(!r.error && r.data && r.data.length > 0) return r;
   }
 
-  // 마지막 안전망: KRV의 해당 장 전체를 가져온 뒤 책 이름/코드로 브라우저에서 필터링합니다.
+  // 3. 대체조회: 해당 장(chapter) 데이터 불러온 뒤 필터링
   var fallback=await supabaseClient.from('bible')
     .select('book,book_code,chapter,verse,text')
-    .eq('version','KRV')
     .eq('chapter',chapter)
     .order('verse',{ascending:true});
   if(fallback.error) return fallback;
   var rows=(fallback.data||[]).filter(function(v){
-    return v.book===book || v.book_code===code || String(v.book_code||'').toLowerCase()===String(code||'').toLowerCase();
+    return v.book===book || (v.book_code && code && String(v.book_code).toLowerCase()===String(code).toLowerCase());
   });
   return {data:rows,error:null};
 }
