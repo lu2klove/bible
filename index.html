@@ -348,7 +348,7 @@ var DEFAULT_PERMISSION_SETTINGS = {
   member: { activity_types:false, appearance:false, bible_settings:false, group_management:false }
 };
 function getPermissionSettings(){
-  var saved = (currentGroupInfo && currentGroupInfo.permission_settings) || {};
+  var saved = (systemSettingsInfo && systemSettingsInfo.permission_settings) || {};
   return {
     admin: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.admin, saved.admin||{}),
     member: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.member, saved.member||{})
@@ -627,6 +627,14 @@ async function loadActivityTypes(groupId){
 }
 
 var currentGroupInfo = null;
+var systemSettingsInfo = null;
+async function loadSystemSettings(){
+  try{
+    var res = await supabaseClient.from('sg_system_settings').select('*').eq('id', 'global').limit(1);
+    if(res.error){ console.error(res.error); systemSettingsInfo = null; return; }
+    systemSettingsInfo = (res.data && res.data[0]) || null;
+  }catch(err){ console.error('loadSystemSettings error:', err); systemSettingsInfo = null; }
+}
 function applyAppearance(group){
   var body = document.body;
   body.classList.remove('theme-blue','theme-rose','theme-dark','font-gothic','font-serif');
@@ -649,6 +657,7 @@ async function loadGroupData(groupId){
     var gRes = await supabaseClient.from('sg_groups').select('*').eq('id', groupId).limit(1);
     currentGroupInfo = (gRes.data && gRes.data[0]) || null;
   }catch(err){ console.error('loadGroupData group info error:', err); }
+  await loadSystemSettings();
 }
 
 // ---------- 메인 앱 셸 ----------
@@ -1502,7 +1511,8 @@ async function renderSettingsTab(){
   var el = document.getElementById('tabContent');
   var currentGroupRes = await supabaseClient.from('sg_groups').select('*').eq('id', currentMember.group_id).limit(1);
   var currentGroup = (currentGroupRes.data && currentGroupRes.data[0]) || { bible_reading_mode: 'bskorea' };
-  currentGroupInfo = currentGroup; // hasPermission()이 최신 권한설정을 참조하도록 전역 캐시도 갱신
+  currentGroupInfo = currentGroup; // hasPermission()이 최신 그룹 정보를 참조하도록 전역 캐시도 갱신
+  await loadSystemSettings(); // 권한설정은 시스템 전체 단일 설정이므로 항상 최신으로 다시 불러옴
 
   var html = '<div class="screen">';
   if(isAdminRole(currentMember.role)){
@@ -1911,9 +1921,9 @@ function openPermissionSettingsScreen(){
       var key = cb.getAttribute('data-perm-key');
       var updated = getPermissionSettings();
       updated[role][key] = cb.checked;
-      var res = await supabaseClient.from('sg_groups').update({ permission_settings: updated }).eq('id', currentMember.group_id);
+      var res = await supabaseClient.from('sg_system_settings').upsert({ id: 'global', permission_settings: updated });
       if(res.error){ showToast('저장 실패: '+res.error.message); cb.checked = !cb.checked; return; }
-      currentGroupInfo = Object.assign({}, currentGroupInfo, { permission_settings: updated });
+      systemSettingsInfo = { id: 'global', permission_settings: updated };
       showToast('권한 설정을 저장했어요.');
     });
   });
