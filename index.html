@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>소그룹커뮤 · 교회 소그룹 관리</title>
+<!-- 홈 화면 아이콘 및 파비콘 설정 -->
+<link rel="apple-touch-icon" id="appleTouchIcon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%233F6357'/><text x='90' y='100' font-size='90' text-anchor='middle' dominant-baseline='central'>🙏</text></svg>">
+<link rel="icon" id="appFavicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%233F6357'/><text x='90' y='100' font-size='90' text-anchor='middle' dominant-baseline='central'>🙏</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -299,6 +302,47 @@ if(window.supabase && window.supabase.createClient){
       '</div>';
   });
 }
+
+// ---------- 홈 화면 PNG 아이콘 자동 생성 (사파리 호환성 강화) ----------
+function updateAppIconPNG(colorHex){
+  try {
+    var canvas = document.createElement('canvas');
+    canvas.width = 180;
+    canvas.height = 180;
+    var ctx = canvas.getContext('2d');
+    
+    // 배경 (둥근 사각형)
+    var r = 40;
+    ctx.fillStyle = colorHex || '#3F6357';
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(180 - r, 0);
+    ctx.quadraticCurveTo(180, 0, 180, r);
+    ctx.lineTo(180, 180 - r);
+    ctx.quadraticCurveTo(180, 180, 180 - r, 180);
+    ctx.lineTo(r, 180);
+    ctx.quadraticCurveTo(0, 180, 0, 180 - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // 이모지 기도손 그리기
+    ctx.font = '90px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🙏', 90, 95);
+
+    var dataUrl = canvas.toDataURL('image/png');
+    var appleLink = document.getElementById('appleTouchIcon');
+    var favLink = document.getElementById('appFavicon');
+    if(appleLink) appleLink.href = dataUrl;
+    if(favLink) favLink.href = dataUrl;
+  } catch(e) {
+    console.warn('App icon PNG generation skipped', e);
+  }
+}
+updateAppIconPNG();
 
 // ---------- 성경 데이터 (구약 39권 929장 / 신약 27권 260장) ----------
 var BSKOREA_BOOK_CODE = {
@@ -1495,7 +1539,7 @@ function openChangePinSheet(){
     if(p1 !== p2){ errEl.textContent = '두 PIN이 서로 달라요.'; return; }
 
     var res = await supabaseClient.from('sg_members').update({ pin: p1 }).eq('id', currentMember.id);
-    if(res.error){ errEl.textContent = '변경 실패: '+res.error.message; return; }
+    if(res.error){ errEl.textContent = '변경 실패: '+res.error.message); return; }
     currentMember.pin = p1;
     closeSheet('genericSheet');
     showToast('PIN이 변경됐어요.');
@@ -1905,6 +1949,8 @@ async function renderSettingsTab(){
         el.querySelectorAll('[data-theme-pick]').forEach(function(c){ c.classList.remove('selected'); });
         chip.classList.add('selected');
         applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+        var themeColorMap = { default:'#3F6357', blue:'#2B5C8A', rose:'#A8455F', dark:'#20241D' };
+        updateAppIconPNG(themeColorMap[selectedTheme] || '#3F6357');
       });
     });
     var selectedFont = currentGroup.font_family || 'default';
