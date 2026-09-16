@@ -154,7 +154,8 @@
     aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
     border-radius:8px; cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
   }
-  .cal-cell.today{border:1.5px solid var(--pine);}
+  .cal-cell.today{background:var(--pine); color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(63,99,87,0.35); border-radius:50%;}
+  .cal-cell.today.sunday, .cal-cell.today.saturday, .cal-cell.today.holiday{color:#fff;}
   .cal-cell.has-activity::after{
     content:''; width:5px; height:5px; border-radius:50%; background:var(--brick); position:absolute; bottom:4px;
   }
@@ -196,7 +197,7 @@
   .switch-toggle input:checked + .slider::before{transform:translateX(18px);}
   .editorial-panel-row{display:flex; gap:10px; margin-bottom:14px; align-items:stretch;}
   .editorial-card{
-    flex:1; min-width:0; background:#FFFFFF; border-radius:18px; overflow:hidden;
+    flex:1; min-width:0; height:100%; background:#FFFFFF; border-radius:18px; overflow:hidden;
     box-shadow:0 2px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column;
     scroll-snap-align:center; text-decoration:none; color:inherit;
   }
@@ -208,8 +209,9 @@
   .editorial-image-wrap{width:100%; aspect-ratio:4/3; background:#E4E1EC; overflow:hidden;}
   .editorial-image-wrap img{width:100%; height:100%; object-fit:cover; display:block;}
   .editorial-video-fallback{width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:1.5rem; background:#3A3550; color:#fff;}
-  .editorial-body{padding:12px 10px 14px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; flex:1;}
+  .editorial-body{padding:12px 10px 14px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; justify-content:space-between;}
   .editorial-title{font-size:0.8125rem; font-weight:800; color:#1C1A24; line-height:1.3;}
+  .editorial-title-meta{font-weight:600; color:#8B85A3; font-size:0.75rem;}
   .editorial-subtitle{font-size:0.6875rem; color:#8B85A3; line-height:1.45; margin:0;}
   .editorial-cta{
     margin-top:6px; padding:7px 14px; border-radius:999px; border:1px solid #D8D5E3;
@@ -221,6 +223,7 @@
   .editorial-dots{display:flex; justify-content:center; gap:5px; margin-top:6px;}
   .editorial-dots .dot{width:5px; height:5px; border-radius:50%; background:var(--line);}
   .editorial-dots .dot.active{background:#8B85A3;}
+  .ig-calendar-card{background:#FFFFFF; border:none; border-radius:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
 </style>
 </head>
 <body>
@@ -378,8 +381,8 @@ function roleBadgeHTML(role){
   return '';
 }
 var DEFAULT_PERMISSION_SETTINGS = {
-  admin: { activity_types:true, appearance:true, bible_settings:true, group_management:true },
-  member: { activity_types:false, appearance:false, bible_settings:false, group_management:false }
+  admin: { activity_types:true, appearance:true, bible_settings:true, group_management:true, worship_video:true },
+  member: { activity_types:false, appearance:false, bible_settings:false, group_management:false, worship_video:false }
 };
 function getPermissionSettings(){
   var saved = (systemSettingsInfo && systemSettingsInfo.permission_settings) || {};
@@ -563,6 +566,10 @@ function niceDate(dateStr){
   var d = new Date(dateStr+'T00:00:00');
   var days = ['일','월','화','수','목','금','토'];
   return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
+}
+function shortDateLabel(dateStr){
+  var d = new Date(dateStr+'T00:00:00');
+  return (d.getMonth()+1)+'.'+d.getDate();
 }
 function addDays(dateStr, n){
   var d = new Date(dateStr+'T00:00:00');
@@ -1679,6 +1686,17 @@ async function renderSettingsTab(){
   html += '</div>';
   } // hasPermission('bible_settings') 끝
 
+  // ---- 주일예배 영상 관리 ----
+  if(hasPermission('worship_video')){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎬 주일예배 영상 관리</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    var wTitle = currentGroup.worship_video_title || '';
+    var wUrl = currentGroup.worship_video_url || '';
+    html += wUrl ? '<p class="savehint" style="margin-bottom:8px;">현재 등록: '+escapeHtml(wTitle||'(제목 없음)')+'</p>' : '<p class="empty-inline">등록된 영상이 없어요.</p>';
+    html += '<button class="btn btn-block" id="set_editWorshipBtn" type="button">영상 등록/수정</button>';
+    html += '</div>';
+  }
+
   // ---- 소그룹 관리 ----
   if(hasPermission('group_management')){
     groups = await loadGroups();
@@ -1762,6 +1780,12 @@ async function renderSettingsTab(){
       }).eq('id', currentMember.group_id);
       if(res.error){ showToast('저장 실패: '+res.error.message); return; }
       showToast('사용자 보기 설정을 저장했어요.');
+    });
+  }
+
+  if(hasPermission('worship_video')){
+    document.getElementById('set_editWorshipBtn').addEventListener('click', function(){
+      openWorshipVideoForm(function(){ renderSettingsTab(); });
     });
   }
 
@@ -1862,7 +1886,8 @@ function openPermissionSettingsScreen(){
     ['activity_types','🏷️ 소모임 활동 항목'],
     ['appearance','🎨 화면 상단 꾸미기 (테마·폰트 포함)'],
     ['bible_settings','📖 성경보기 설정'],
-    ['group_management','🌱 소그룹 관리']
+    ['group_management','🌱 소그룹 관리'],
+    ['worship_video','🎬 주일예배 영상 관리']
   ];
 
   var html = '';
@@ -2115,7 +2140,7 @@ function openPrayerAnswerScreen(){
   });
 }
 
-function openWorshipVideoForm(){
+function openWorshipVideoForm(onSaved){
   var title = (currentGroupInfo && currentGroupInfo.worship_video_title) || '';
   var url = (currentGroupInfo && currentGroupInfo.worship_video_url) || '';
   var html = '';
@@ -2137,7 +2162,7 @@ function openWorshipVideoForm(){
     if(res.error){ showToast('저장 실패: '+res.error.message); return; }
     currentGroupInfo = Object.assign({}, currentGroupInfo, { worship_video_title: newTitle||null, worship_video_url: newUrl||null });
     closeSheet('genericSheet');
-    renderCalendarTab();
+    if(onSaved) onSaved(); else renderCalendarTab();
     showToast('주일예배 영상을 저장했어요.');
   });
 }
@@ -2210,7 +2235,7 @@ async function renderCalendarTab(){
   if(recentPhotoActivities.length === 0){
     html += '<div class="editorial-card"><div class="editorial-badge">📷 RECENT MOMENT</div>';
     html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">🖼️</div></div>';
-    html += '<div class="editorial-body"><p class="editorial-title">아직 사진이 없어요</p><p class="editorial-subtitle">소모임 활동에<br>사진을 남겨보세요</p></div></div>';
+    html += '<div class="editorial-body"><p class="editorial-title">아직 사진이 없어요</p><span></span></div></div>';
   }else{
     html += '<div class="editorial-carousel" id="cal_photoCarousel">';
     recentPhotoActivities.forEach(function(a){
@@ -2218,8 +2243,7 @@ async function renderCalendarTab(){
       html += '<div class="editorial-badge">📷 RECENT MOMENT</div>';
       html += '<div class="editorial-image-wrap"><img src="'+a.photo_image+'"></div>';
       html += '<div class="editorial-body">';
-      html += '<p class="editorial-title">'+escapeHtml(a.title)+'</p>';
-      html += '<p class="editorial-subtitle">'+niceDate(a.date)+'</p>';
+      html += '<p class="editorial-title">'+escapeHtml(a.title)+' <span class="editorial-title-meta">· '+shortDateLabel(a.date)+'</span></p>';
       html += '<span class="editorial-cta">자세히 보기 →</span>';
       html += '</div></button>';
     });
@@ -2244,23 +2268,19 @@ async function renderCalendarTab(){
     html += ytThumb ? ('<img src="'+ytThumb+'">') : '<div class="editorial-video-fallback">▶️</div>';
     html += '</div>';
     html += '<div class="editorial-body">';
-    html += '<p class="editorial-title">'+escapeHtml(worshipTitle)+'</p>';
-    html += '<p class="editorial-subtitle">함께 드리는<br>온라인 예배</p>';
+    html += '<p class="editorial-title">'+escapeHtml(worshipTitle)+' <span class="editorial-title-meta">· 함께드리는 온라인 예배</span></p>';
     html += '<span class="editorial-cta">영상 보기 →</span>';
     html += '</div></a>';
   }else{
     html += '<div class="editorial-card"><div class="editorial-badge">🎬 SUNDAY WORSHIP</div>';
     html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">▶️</div></div>';
-    html += '<div class="editorial-body"><p class="editorial-title">등록된 영상이 없어요</p><p class="editorial-subtitle">관리자가 곧<br>등록할 예정이에요</p></div></div>';
-  }
-  if(isAdminRole(currentMember.role)){
-    html += '<button type="button" class="chip" id="cal_editWorshipBtn" style="font-size:0.625rem;padding:5px 10px;margin-top:6px;align-self:center;">영상 등록/수정</button>';
+    html += '<div class="editorial-body"><p class="editorial-title">등록된 영상이 없어요</p><span></span></div></div>';
   }
   html += '</div>';
 
   html += '</div>';
 
-  html += '<div class="card">';
+  html += '<div class="card ig-calendar-card">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
   html += '<button class="btn" id="cal_prevBtn" type="button" style="padding:6px 10px;">‹</button>';
   html += '<h2 style="font-size:1rem;cursor:pointer;" id="cal_monthLabel">'+calYear+'년 '+calMonth+'월 ▾</h2>';
@@ -2334,8 +2354,6 @@ async function renderCalendarTab(){
       photoDots.forEach(function(d,i){ d.classList.toggle('active', i === idx); });
     });
   }
-  var editWorshipBtn = document.getElementById('cal_editWorshipBtn');
-  if(editWorshipBtn) editWorshipBtn.addEventListener('click', openWorshipVideoForm);
   el.querySelectorAll('.cal-cell[data-date]').forEach(function(cell){
     cell.addEventListener('click', function(){
       openDateMenu(cell.getAttribute('data-date'));
