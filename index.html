@@ -191,7 +191,7 @@ var BSKOREA_BOOK_CODE = {
   '에스겔':'ezk','다니엘':'dan','호세아':'hos','요엘':'joe','아모스':'amo',
   '오바댜':'oba','요나':'jon','미가':'mic','나훔':'nam','하박국':'hab',
   '스바냐':'zep','학개':'hag','스가랴':'zec','말라기':'mal',
-  '마태복음':'mat','마가복음':'mrk','누가복음':'luk','요한복음':'jhn','사도행전':'act',
+  '마태복음':'mat','마가복음':'mrk','누가복음':'luk','요한복음':'joh','사도행전':'act',
   '로마서':'rom','고린도전서':'1co','고린도후서':'2co','갈라디아서':'gal','에베소서':'eph',
   '빌립보서':'php','골로새서':'col','데살로니가전서':'1th','데살로니가후서':'2th','디모데전서':'1ti',
   '디모데후서':'2ti','디도서':'tit','빌레몬서':'phm','히브리서':'heb','야고보서':'jas',
@@ -840,63 +840,33 @@ async function openBibleReader(dateIso, plan, chapters, done){
 async function openDailyReadingForDate(dateIso){
   var plan = await loadReadingPlan(currentMember.id);
   var body = document.getElementById('dailyReadingSheetBody');
+
   if(!plan){
     body.innerHTML='<p class="empty-inline">먼저 성경통독 설정을 해주세요.</p>';
-    openSheet('dailyReadingSheet'); return;
+    openSheet('dailyReadingSheet');
+    return;
   }
-  var progress=await loadReadingProgress(plan.id);
-  var row=progress.find(function(p){return p.date===dateIso;});
-  var range=row&&row.range_start_book?{chapters:[
-    {book:row.range_start_book,chapter:Number(row.range_start_chapter)},
-    {book:row.range_end_book,chapter:Number(row.range_end_chapter)}
-  ]}:computeReadingPlanDayRange(plan,dateIso);
-  if(!range||!range.chapters||!range.chapters.length){
+
+  var progress = await loadReadingProgress(plan.id);
+  var existingRow = progress.find(function(p){ return p.date === dateIso; });
+
+  var range = existingRow && existingRow.range_start_book
+    ? {
+        chapters: [
+          {book:existingRow.range_start_book, chapter:Number(existingRow.range_start_chapter)},
+          {book:existingRow.range_end_book, chapter:Number(existingRow.range_end_chapter)}
+        ]
+      }
+    : computeReadingPlanDayRange(plan, dateIso);
+
+  if(!range || !range.chapters || !range.chapters.length){
     body.innerHTML='<p class="empty-inline">해당 날짜의 통독 범위를 찾지 못했어요.</p>';
-    openSheet('dailyReadingSheet'); return;
+    openSheet('dailyReadingSheet');
+    return;
   }
-  var first=range.chapters[0], last=range.chapters[range.chapters.length-1];
-  body.innerHTML='<p class="field-label-strong">'+niceDate(dateIso)+'</p>'+
-    '<div class="card" style="text-align:center;margin-top:10px"><p style="font-size:20px;font-weight:700">'+
-    escapeHtml(formatChapterRange(range.chapters))+'</p></div>'+
-    '<button class="btn btn-primary btn-block" id="dr_bibleBtn" type="button">📖 오늘의 말씀 읽기</button>'+
-    '<p class="savehint" style="text-align:center;margin-top:8px">앱에서 성경 본문을 읽습니다.</p>'+
-    (row&&row.completed?'<div class="card" style="text-align:center;margin-top:10px">✅ 읽기 완료</div>':
-    '<button class="btn btn-block" id="dr_completeBtn" type="button" style="margin-top:8px">읽기 완료</button>');
-  openSheet('dailyReadingSheet');
-  document.getElementById('dr_bibleBtn').onclick=async function(){
-    body.innerHTML='<p class="empty-inline">말씀을 불러오는 중이에요…</p>';
-    var code=BSKOREA_BOOK_CODE[first.book], q;
-    q=await supabaseClient.from('bible').select('book,book_code,chapter,verse,text')
-      .eq('version','KRV').eq('book',first.book).eq('chapter',first.chapter)
-      .order('verse',{ascending:true});
-    if(q.error){
-      body.innerHTML='<div class="card"><b>말씀을 불러오지 못했어요.</b><p class="savehint">'+escapeHtml(q.error.message)+'</p></div>'; return;
-    }
-    if(!q.data||!q.data.length){
-      q=await supabaseClient.from('bible').select('book,book_code,chapter,verse,text')
-        .eq('book',first.book).eq('chapter',first.chapter).order('verse',{ascending:true});
-    }
-    if(!q.data||!q.data.length){
-      body.innerHTML='<div class="card"><b>이 장의 말씀을 찾지 못했어요.</b><p class="savehint">조회값: '+escapeHtml(first.book)+' '+first.chapter+'장 / KRV</p></div>'; return;
-    }
-    var r='<div style="text-align:center;margin-bottom:12px"><p style="font-size:23px;font-weight:700">'+
-      escapeHtml(first.book)+' '+first.chapter+'장</p><p class="savehint">개역한글(KRV)</p></div>'+
-      '<div class="card" style="font-family:serif;line-height:1.9">';
-    q.data.forEach(function(v){r+='<p style="margin:0 0 9px"><sup style="font-weight:700;margin-right:5px">'+v.verse+
-      '</sup>'+escapeHtml(v.text)+'</p>';});
-    r+='</div><button class="btn btn-block" id="dr_backBtn" type="button" style="margin-top:8px">← 통독 화면으로</button>';
-    body.innerHTML=r;
-    document.getElementById('dr_backBtn').onclick=function(){openDailyReadingForDate(dateIso);};
-  };
-  var cb=document.getElementById('dr_completeBtn');
-  if(cb) cb.onclick=async function(){
-    var payload={plan_id:plan.id,date:dateIso,completed:true,completed_at:new Date().toISOString(),
-      range_start_book:first.book,range_start_chapter:first.chapter,range_end_book:last.book,range_end_chapter:last.chapter};
-    var q=row?await supabaseClient.from('sg_reading_progress').update(payload).eq('id',row.id):
-      await supabaseClient.from('sg_reading_progress').insert(payload);
-    if(q.error){showToast('저장 실패: '+q.error.message);return;}
-    showToast('오늘의 통독을 완료했어요! 🎉'); openDailyReadingForDate(dateIso);
-  };
+
+  var done = existingRow && existingRow.completed;
+  await openBibleReader(dateIso, plan, range.chapters, done);
 }
 
 function renderSettingsTab(){
