@@ -1,0 +1,2933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>소그룹커뮤 · 교회 소그룹 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap');
+
+  :root{
+    --paper:#ECEAE0;
+    --paper-raised:#F6F4EB;
+    --ink:#20241D;
+    --ink-soft:#5B6153;
+    --ink-faint:#8B9081;
+    --line:#C9C6B2;
+    --pine:#3F6357;
+    --pine-soft:#DCE5DF;
+    --brick:#A8452F;
+    --brick-soft:#F0DAD2;
+    --olive:#8A7B4E;
+    --olive-soft:#EAE3CC;
+    --blue:#2B6FCB;
+    --blue-soft:#DCE7F5;
+    --amber:#B8791E;
+    --amber-soft:#F0E0BE;
+    --radius:10px;
+    --font-scale:1;
+    --font-heading:'Noto Serif KR', serif;
+    --font-body:'IBM Plex Sans KR','Noto Sans KR',sans-serif;
+  }
+  body.theme-blue{
+    --pine:#2B5C8A; --pine-soft:#D9E6F0; --paper:#EAEEF2; --paper-raised:#F5F7F9;
+    --ink:#1B2733; --ink-soft:#4E5D6B; --ink-faint:#8B97A3; --line:#C5D0DA;
+  }
+  body.theme-rose{
+    --pine:#A8455F; --pine-soft:#F2DEE3; --paper:#F3EAE9; --paper-raised:#FAF4F3;
+    --ink:#2E1B20; --ink-soft:#6B4E54; --ink-faint:#A3898D; --line:#DEC5C9;
+  }
+  body.theme-dark{
+    --paper:#20241D; --paper-raised:#2B3025; --ink:#ECEAE0;
+    --ink-soft:#B8BCAF; --ink-faint:#7C8172; --line:#454B3C; --pine:#7FAE9B; --pine-soft:#33473E;
+    --brick-soft:#4A2E27; --amber-soft:#4A3D22;
+  }
+  body.font-gothic{ --font-heading:'IBM Plex Sans KR','Noto Sans KR',sans-serif; --font-body:'IBM Plex Sans KR','Noto Sans KR',sans-serif; }
+  body.font-serif{ --font-heading:'Noto Serif KR',serif; --font-body:'Noto Serif KR',serif; }
+  html{ font-size:calc(16px * var(--font-scale)); }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:var(--font-body);
+    background:var(--paper); color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3{font-family:var(--font-heading); margin:0;}
+  input,select,textarea,button{font-family:inherit; font-size:0.9375rem;}
+  input[type="text"],input[type="password"],input[type="number"],input[type="date"],select,textarea{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px;
+    background:var(--paper-raised); color:var(--ink);
+  }
+  .app{max-width:520px; margin:0 auto; min-height:100vh; background:var(--paper); position:relative;}
+  @media (min-width:900px){
+    body{ background:var(--line); }
+    .app{ max-width:640px; box-shadow:0 0 0 1px var(--line), 0 12px 40px rgba(0,0,0,0.12); }
+  }
+  @media (min-width:1200px){
+    .app{ max-width:760px; }
+  }
+  .screen{padding:16px; padding-bottom:90px;}
+  .header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(16px + env(safe-area-inset-top)) 16px 16px; border-bottom:1px solid var(--line); background:var(--paper-raised);
+    position:sticky; top:0; z-index:20;
+  }
+  .header h1{font-size:1.125rem;}
+  .field{margin-bottom:12px;}
+  .field-label{display:block; font-size:0.7812rem; color:var(--ink-soft); margin-bottom:5px; font-weight:600;}
+  .field-label-strong{font-size:0.875rem; color:var(--ink); font-weight:700;}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:11px 16px; border-radius:9px; border:1px solid var(--line);
+    background:var(--paper-raised); color:var(--ink); cursor:pointer; font-weight:600;
+  }
+  .btn-primary{background:var(--pine); border-color:var(--pine); color:#fff;}
+  .btn-danger{background:var(--brick-soft); border-color:var(--brick); color:var(--brick);}
+  .btn-block{width:100%;}
+  .card{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .chip{
+    display:inline-flex; align-items:center; padding:8px 13px; border-radius:999px;
+    border:1px solid var(--line); background:var(--paper-raised); color:var(--ink-soft);
+    font-size:0.8438rem; cursor:pointer; font-weight:600;
+  }
+  .chip.selected{background:var(--pine); border-color:var(--pine); color:#fff;}
+  .chiprow{display:flex; gap:8px; flex-wrap:wrap;}
+  .badge{
+    display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px;
+    font-size:0.7188rem; font-weight:700;
+  }
+  .badge-admin{background:var(--amber-soft); color:var(--amber);}
+  .empty-inline{color:var(--ink-faint); font-size:0.8438rem; padding:14px 0;}
+  .savehint{font-size:0.7812rem; color:var(--ink-faint); line-height:1.5;}
+  .row2{display:flex; gap:8px;}
+  .row2 > *{flex:1;}
+  .tabbar{
+    position:fixed; bottom:0; left:0; right:0; max-width:520px; margin:0 auto;
+    display:flex; border-top:1px solid var(--line); background:var(--paper-raised); z-index:30;
+  }
+  @media (min-width:900px){ .tabbar{ max-width:640px; } }
+  @media (min-width:1200px){ .tabbar{ max-width:760px; } }
+  .tabbar button{
+    flex:1; background:none; border:none; padding:11px 4px 9px; display:flex; flex-direction:column;
+    align-items:center; gap:2px; color:var(--ink-faint); font-size:0.6875rem; font-weight:600; cursor:pointer;
+  }
+  .tabbar button.active{color:var(--pine);}
+  .tabbar button .ico{font-size:1.1875rem;}
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:80; display:none;
+  }
+  .overlay.open{display:block;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; max-width:520px; margin:0 auto;
+    background:var(--paper); border-radius:16px 16px 0 0; z-index:90;
+    max-height:88vh; overflow-y:auto; padding:18px 16px 24px;
+    transform:translateY(100%); transition:transform 0.25s ease;
+  }
+  @media (min-width:900px){ .sheet{ max-width:640px; } }
+  @media (min-width:1200px){ .sheet{ max-width:760px; } }
+  .sheet.open{transform:translateY(0);}
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .sheet-title{font-size:1.0625rem; font-weight:700; font-family:var(--font-heading);}
+  .sheet-close{background:none; border:none; font-size:1.25rem; color:var(--ink-faint); cursor:pointer;}
+  .toast{
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--paper); padding:10px 18px; border-radius:999px;
+    font-size:0.8438rem; z-index:100; opacity:0; pointer-events:none; transition:opacity 0.2s;
+  }
+  .toast.show{opacity:1;}
+  .announce-bar{
+    background:var(--amber-soft); border:1px solid var(--amber); border-radius:14px;
+    padding:10px 12px; margin-bottom:14px; font-size:0.8125rem; color:var(--ink);
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;}
+  .cal-dow{font-size:0.6875rem; color:var(--ink-faint); padding:6px 0; font-weight:700;}
+  .cal-cell{
+    aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:8px; cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
+  }
+  .cal-cell.today{background:var(--pine); color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(63,99,87,0.35); border-radius:50%;}
+  .cal-cell.today.sunday, .cal-cell.today.saturday, .cal-cell.today.holiday{color:#fff;}
+  .cal-cell.has-activity::after{
+    content:''; width:5px; height:5px; border-radius:50%; background:var(--brick); position:absolute; bottom:4px;
+  }
+  .cal-cell .reading-done-ico{position:absolute; top:1px; right:2px; font-size:0.5625rem; line-height:1;}
+  .cal-cell .prayer-ico{position:absolute; top:1px; left:2px; font-size:0.5625rem; line-height:1;}
+  .cal-cell.faded{color:var(--ink-faint);}
+  .cal-cell.sunday, .cal-cell.holiday{color:var(--brick); font-weight:700;}
+  .cal-cell.saturday{color:var(--blue); font-weight:700;}
+  .cal-dow.sunday{color:var(--brick);}
+  .cal-dow.saturday{color:var(--blue);}
+  .member-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line);}
+  .member-row:last-child{border-bottom:none;}
+  .progress-bar-bg{height:8px; background:var(--line); border-radius:4px; overflow:hidden;}
+  .progress-bar-fill{height:100%; background:var(--pine);}
+  .reading-carousel{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; gap:0; margin:0 -14px; scrollbar-width:none;}
+  .reading-carousel::-webkit-scrollbar{display:none;}
+  .reading-panel{flex:0 0 100%; scroll-snap-align:center; padding:0 14px; box-sizing:border-box;}
+  .carousel-dots{display:flex; justify-content:center; gap:6px; margin-top:10px;}
+  .carousel-dots .dot{width:6px; height:6px; border-radius:50%; background:var(--line); transition:background 0.2s;}
+  .carousel-dots .dot.active{background:var(--pine);}
+  .stat-mini-card{background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:10px 6px; text-align:center; flex:1;}
+  .stat-mini-card .stat-label{font-size:0.6875rem; color:var(--ink-faint); font-weight:600;}
+  .stat-mini-card .stat-value{font-size:1.1875rem; font-weight:800; margin:4px 0;}
+  .stat-mini-card .stat-sub{font-size:0.6875rem; color:var(--ink-faint);}
+  .weekstrip-row{display:flex; justify-content:space-between; gap:4px;}
+  .weekstrip-day{display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;}
+  .weekstrip-circle{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.8125rem; background:var(--line); color:var(--ink-faint);}
+  .weekstrip-circle.done{background:var(--pine); color:#fff;}
+  .weekstrip-circle.today-ring{box-shadow:0 0 0 2px var(--pine);}
+  .weekstrip-label{font-size:0.6875rem; color:var(--ink-faint);}
+  .weekstrip-label.today-label{color:var(--pine); font-weight:700;}
+  .switch-row{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line);}
+  .switch-row:last-child{border-bottom:none;}
+  .switch-toggle{position:relative; width:44px; height:26px; flex-shrink:0; cursor:pointer;}
+  .switch-toggle input{opacity:0; width:0; height:0;}
+  .switch-toggle .slider{position:absolute; inset:0; background:var(--line); border-radius:999px; transition:background 0.2s;}
+  .switch-toggle .slider::before{content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s;}
+  .switch-toggle input:checked + .slider{background:var(--pine);}
+  .switch-toggle input:checked + .slider::before{transform:translateX(18px);}
+  .editorial-panel-row{display:flex; gap:10px; margin-bottom:14px; align-items:stretch;}
+  .editorial-card{
+    flex:1; min-width:0; height:100%; background:#FFFFFF; border-radius:18px; overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column;
+    scroll-snap-align:center; text-decoration:none; color:inherit;
+  }
+  .editorial-badge{
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    padding:9px 6px; border-bottom:1px solid #EFEDF3; font-size:0.625rem; font-weight:800;
+    letter-spacing:0.06em; color:#20241D;
+  }
+  .editorial-image-wrap{width:100%; aspect-ratio:4/3; background:#E4E1EC; overflow:hidden;}
+  .editorial-image-wrap img{width:100%; height:100%; object-fit:cover; display:block;}
+  .editorial-video-fallback{width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:1.5rem; background:#3A3550; color:#fff;}
+  .editorial-body{padding:12px 10px 14px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; justify-content:space-between;}
+  .editorial-title{font-size:0.8125rem; font-weight:800; color:#1C1A24; line-height:1.3;}
+  .editorial-title-meta{font-weight:600; color:#8B85A3; font-size:0.75rem;}
+  .editorial-subtitle{font-size:0.6875rem; color:#8B85A3; line-height:1.45; margin:0;}
+  .editorial-cta{
+    margin-top:6px; padding:7px 14px; border-radius:999px; border:1px solid #D8D5E3;
+    font-size:0.6875rem; font-weight:700; color:#1C1A24; background:#fff; cursor:pointer;
+  }
+  .editorial-carousel{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:0; scrollbar-width:none; flex:1;}
+  .editorial-carousel::-webkit-scrollbar{display:none;}
+  .editorial-carousel .editorial-card{flex:0 0 100%;}
+  .editorial-dots{display:flex; justify-content:center; gap:5px; margin-top:6px;}
+  .editorial-dots .dot{width:5px; height:5px; border-radius:50%; background:var(--line);}
+  .editorial-dots .dot.active{background:#8B85A3;}
+  .ig-calendar-card{background:#FFFFFF; border:none; border-radius:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
+
+  /* ---- 성경 본문 읽기 전용 스타일 ---- */
+  .bible-reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+  .bible-chapter-title{font-size:1.4375rem;margin-top:3px;}
+  .bible-page-count{font-size:0.75rem;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
+  .bible-range-note{background:var(--pine-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:var(--ink-soft);margin-bottom:14px;}
+  .bible-text{font-family:var(--font-heading);background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
+  .bible-verse{font-size:1.0625rem;line-height:1.9;margin:0 0 10px;letter-spacing:-.01em;}
+  .bible-verse:last-child{margin-bottom:0;}
+  .bible-verse sup{font-family:var(--font-body);font-size:0.6875rem;color:var(--pine);font-weight:700;margin-right:6px;vertical-align:top;line-height:1.7;}
+  .bible-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .bible-nav .btn:disabled{opacity:.35;cursor:default;}
+  .bible-loading{text-align:center;padding:50px 10px;color:var(--ink-faint);font-size:0.8125rem;}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="overlay" id="sheetBackdrop"></div>
+<p class="toast" id="toast"></p>
+
+<div class="sheet" id="genericSheet">
+  <div class="sheet-head">
+    <span class="sheet-title" id="genericSheetTitle">제목</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('genericSheet')">✕</button>
+  </div>
+  <div id="genericSheetBody"></div>
+</div>
+
+<div class="sheet" id="activitySheet">
+  <div class="sheet-head">
+    <span class="sheet-title" id="activitySheetTitle">소모임 활동</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('activitySheet')">✕</button>
+  </div>
+  <div id="activitySheetBody"></div>
+</div>
+
+<div class="sheet" id="mapSearchSheet" style="z-index:95;">
+  <div class="sheet-head">
+    <span class="sheet-title">🗺️ 장소 찾기</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('mapSearchSheet')">✕</button>
+  </div>
+  <div id="mapSearchSheetBody"></div>
+</div>
+
+<div class="sheet" id="dailyReadingSheet">
+  <div class="sheet-head">
+    <span class="sheet-title">📖 오늘의 통독</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('dailyReadingSheet')">✕</button>
+  </div>
+  <div id="dailyReadingSheetBody"></div>
+</div>
+
+<div id="imgViewerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;align-items:center;justify-content:center;" onclick="closeImageViewer()">
+  <img id="imgViewerImg" src="" style="max-width:92%;max-height:92%;object-fit:contain;">
+</div>
+
+<script>
+window.addEventListener('error', function(ev){
+  console.error('App error:', ev.error);
+});
+var SUPABASE_URL = 'https://kcoxuxgkuetktiumssxb.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_Hd3naC6mkL_827xKL_Bn_Q_kJqbkQt5';
+var supabaseClient = null;
+if(window.supabase && window.supabase.createClient){
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}else{
+  document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('app').innerHTML =
+      '<div class="screen" style="padding-top:80px;text-align:center;">'+
+      '<p style="font-size:2.5rem;">⚠️</p>'+
+      '<p class="field-label-strong">앱을 불러오지 못했어요.</p>'+
+      '<p class="savehint" style="margin-top:8px;">인터넷 연결, 방화벽/광고차단 확장 프로그램을 확인한 뒤 새로고침 해주세요.</p>'+
+      '<button class="btn btn-primary" style="margin-top:16px;" onclick="location.reload()">다시 시도</button>'+
+      '</div>';
+  });
+}
+
+// ---------- 성경 데이터 (구약 39권 929장 / 신약 27권 260장) ----------
+var BSKOREA_BOOK_CODE = {
+  '창세기':'gen','출애굽기':'exo','레위기':'lev','민수기':'num','신명기':'deu',
+  '여호수아':'jos','사사기':'jdg','룻기':'rut','사무엘상':'1sa','사무엘하':'2sa',
+  '열왕기상':'1ki','열왕기하':'2ki','역대상':'1ch','역대하':'2ch','에스라':'ezr',
+  '느헤미야':'neh','에스더':'est','욥기':'job','시편':'psa','잠언':'pro',
+  '전도서':'ecc','아가':'sng','이사야':'isa','예레미야':'jer','예레미야애가':'lam',
+  '에스겔':'ezk','다니엘':'dan','호세아':'hos','요엘':'joe','아모스':'amo',
+  '오바댜':'oba','요나':'jon','미가':'mic','나훔':'nam','하박국':'hab',
+  '스바냐':'zep','학개':'hag','스가랴':'zec','말라기':'mal',
+  '마태복음':'mat','마가복음':'mrk','누가복음':'luk','요한복음':'jhn','사도행전':'act',
+  '로마서':'rom','고린도전서':'1co','고린도후서':'2co','갈라디아서':'gal','에베소서':'eph',
+  '빌립보서':'php','골로새서':'col','데살로니가전서':'1th','데살로니가후서':'2th','디모데전서':'1ti',
+  '디모데후서':'2ti','디도서':'tit','빌레몬서':'phm','히브리서':'heb','야고보서':'jas',
+  '베드로전서':'1pe','베드로후서':'2pe','요한1서':'1jn','요한2서':'2jn','요한3서':'3jn',
+  '유다서':'jud','요한계시록':'rev'
+};
+function bskoreaReadUrl(book, chapter){
+  var code = BSKOREA_BOOK_CODE[book];
+  if(!code) return null;
+  return 'https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE&book='+code+'&chap='+chapter;
+}
+function getYoutubeThumbnail(url){
+  if(!url) return null;
+  var m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  if(!m) return null;
+  return 'https://img.youtube.com/vi/'+m[1]+'/mqdefault.jpg';
+}
+
+// ---------- 한국 공휴일 ----------
+var KR_HOLIDAYS = {
+  '2025-01-01':'신정', '2025-01-28':'설날 연휴', '2025-01-29':'설날', '2025-01-30':'설날 연휴',
+  '2025-03-01':'삼일절', '2025-03-03':'삼일절 대체공휴일', '2025-05-05':'어린이날/부처님오신날',
+  '2025-05-06':'대체공휴일', '2025-06-06':'현충일', '2025-08-15':'광복절', '2025-10-03':'개천절',
+  '2025-10-05':'추석 연휴', '2025-10-06':'추석', '2025-10-07':'추석 연휴', '2025-10-08':'대체공휴일',
+  '2025-10-09':'한글날', '2025-12-25':'성탄절',
+  '2026-01-01':'신정', '2026-02-16':'설날 연휴', '2026-02-17':'설날', '2026-02-18':'설날 연휴',
+  '2026-03-01':'삼일절', '2026-03-02':'삼일절 대체공휴일', '2026-05-01':'노동절', '2026-05-05':'어린이날',
+  '2026-05-24':'부처님오신날', '2026-06-06':'현충일', '2026-08-15':'광복절', '2026-09-24':'추석 연휴',
+  '2026-09-25':'추석', '2026-09-26':'추석 연휴', '2026-10-03':'개천절', '2026-10-05':'개천절 대체공휴일',
+  '2026-10-09':'한글날', '2026-12-25':'성탄절',
+  '2027-01-01':'신정', '2027-02-06':'설날 연휴', '2027-02-07':'설날', '2027-02-08':'설날 연휴',
+  '2027-02-09':'대체공휴일', '2027-03-01':'삼일절', '2027-05-01':'노동절', '2027-05-05':'어린이날',
+  '2027-05-13':'부처님오신날', '2027-06-06':'현충일', '2027-08-15':'광복절', '2027-09-14':'추석 연휴',
+  '2027-09-15':'추석', '2027-09-16':'추석 연휴', '2027-10-03':'개천절', '2027-10-04':'개천절 대체공휴일',
+  '2027-10-09':'한글날', '2027-10-11':'한글날 대체공휴일', '2027-12-25':'성탄절'
+};
+function getHolidayName(dateIso){ return KR_HOLIDAYS[dateIso] || null; }
+
+var OT_BOOKS = [
+  ['창세기',50],['출애굽기',40],['레위기',27],['민수기',36],['신명기',34],
+  ['여호수아',24],['사사기',21],['룻기',4],['사무엘상',31],['사무엘하',24],
+  ['열왕기상',22],['열왕기하',25],['역대상',29],['역대하',36],['에스라',10],
+  ['느헤미야',13],['에스더',10],['욥기',42],['시편',150],['잠언',31],
+  ['전도서',12],['아가',8],['이사야',66],['예레미야',52],['예레미야애가',5],
+  ['에스겔',48],['다니엘',12],['호세아',14],['요엘',3],['아모스',9],
+  ['오바댜',1],['요나',4],['미가',7],['나훔',3],['하박국',3],
+  ['스바냐',3],['학개',2],['스가랴',14],['말라기',4]
+];
+var NT_BOOKS = [
+  ['마태복음',28],['마가복음',16],['누가복음',24],['요한복음',21],['사도행전',28],
+  ['로마서',16],['고린도전서',16],['고린도후서',13],['갈라디아서',6],['에베소서',6],
+  ['빌립보서',4],['골로새서',4],['데살로니가전서',5],['데살로니가후서',3],['디모데전서',6],
+  ['디모데후서',4],['디도서',3],['빌레몬서',1],['히브리서',13],['야고보서',5],
+  ['베드로전서',5],['베드로후서',3],['요한1서',5],['요한2서',1],['요한3서',1],
+  ['유다서',1],['요한계시록',22]
+];
+function flattenBooks(books){
+  var list = [];
+  books.forEach(function(b){
+    for(var c=1; c<=b[1]; c++){ list.push({book:b[0], chapter:c}); }
+  });
+  return list;
+}
+
+// ---------- 유틸 ----------
+function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9); }
+function isAdminRole(role){ return role === 'admin' || role === 'super_admin'; }
+function roleBadgeHTML(role){
+  if(role === 'super_admin') return ' <span class="badge badge-admin">👑 최고관리자</span>';
+  if(role === 'admin') return ' <span class="badge badge-admin">관리자</span>';
+  return '';
+}
+var DEFAULT_PERMISSION_SETTINGS = {
+  admin: { activity_types:true, appearance:true, bible_settings:true, group_management:true, worship_video:true },
+  member: { activity_types:false, appearance:false, bible_settings:false, group_management:false, worship_video:false }
+};
+function getPermissionSettings(){
+  var saved = (systemSettingsInfo && systemSettingsInfo.permission_settings) || {};
+  return {
+    admin: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.admin, saved.admin||{}),
+    member: Object.assign({}, DEFAULT_PERMISSION_SETTINGS.member, saved.member||{})
+  };
+}
+function hasPermission(section){
+  if(currentMember.role === 'super_admin') return true;
+  var perms = getPermissionSettings();
+  if(currentMember.role === 'admin') return !!perms.admin[section];
+  if(currentMember.role === 'member') return !!perms.member[section];
+  return false;
+}
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function compressImageToDataURL(file, callback, maxWidthOverride, qualityOverride){
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      var maxW = maxWidthOverride || 1000;
+      var scale = Math.min(1, maxW / img.width);
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', qualityOverride || 0.7));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---------- 지도에서 장소 찾기 ----------
+var mapSearchLeafletMap = null;
+var mapSearchMarker = null;
+function openMapSearchSheet(onSelect){
+  var html = '';
+  html += '<div class="row2" style="margin-bottom:10px;">';
+  html += '<input type="text" id="mapsearch_query" placeholder="예: 은혜교회, 서울시청 등" style="flex:2;">';
+  html += '<button type="button" class="btn btn-primary" id="mapsearch_btn" style="flex:1;">검색</button>';
+  html += '</div>';
+  html += '<div id="mapsearch_results" style="margin-bottom:10px;"></div>';
+  html += '<div id="mapsearch_mapEl" style="width:100%;height:220px;border-radius:10px;overflow:hidden;border:1px solid var(--line);"></div>';
+  html += '<p class="savehint" id="mapsearch_selectedName" style="margin-top:8px;"></p>';
+  html += '<button type="button" class="btn btn-primary btn-block" id="mapsearch_useBtn" style="margin-top:8px;display:none;">이 위치 사용</button>';
+
+  document.getElementById('mapSearchSheetBody').innerHTML = html;
+  openSheet('mapSearchSheet');
+
+  var selected = null;
+
+  setTimeout(function(){
+    if(mapSearchLeafletMap){ mapSearchLeafletMap.remove(); mapSearchLeafletMap = null; }
+    mapSearchLeafletMap = L.map('mapsearch_mapEl').setView([37.5665, 126.9780], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    }).addTo(mapSearchLeafletMap);
+
+    mapSearchLeafletMap.on('click', function(ev){
+      placeMarker(ev.latlng.lat, ev.latlng.lng, null);
+    });
+  }, 50);
+
+  function placeMarker(lat, lng, name){
+    if(mapSearchMarker){ mapSearchLeafletMap.removeLayer(mapSearchMarker); }
+    mapSearchMarker = L.marker([lat, lng]).addTo(mapSearchLeafletMap);
+    mapSearchLeafletMap.setView([lat, lng], 16);
+    selected = { name: name, lat: lat, lng: lng };
+    document.getElementById('mapsearch_selectedName').textContent = name ? ('📍 '+name) : ('📍 위도 '+lat.toFixed(5)+', 경도 '+lng.toFixed(5)+' (지도를 눌러 직접 선택했어요)');
+    document.getElementById('mapsearch_useBtn').style.display = 'block';
+  }
+
+  async function doSearch(){
+    var q = document.getElementById('mapsearch_query').value.trim();
+    if(!q) return;
+    var resultsEl = document.getElementById('mapsearch_results');
+    resultsEl.innerHTML = '<p class="savehint">검색 중…</p>';
+    try{
+      var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=kr&q='+encodeURIComponent(q));
+      var data = await res.json();
+      if(!data || data.length === 0){
+        resultsEl.innerHTML = '<p class="empty-inline">검색 결과가 없어요. 지도를 직접 눌러서 위치를 선택할 수도 있어요.</p>';
+        return;
+      }
+      resultsEl.innerHTML = '';
+      data.forEach(function(item){
+        var row = document.createElement('div');
+        row.className = 'card';
+        row.style.cursor = 'pointer';
+        row.style.padding = '10px 12px';
+        row.style.marginBottom = '6px';
+        row.textContent = item.display_name;
+        row.addEventListener('click', function(){
+          placeMarker(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+        });
+        resultsEl.appendChild(row);
+      });
+    }catch(err){
+      resultsEl.innerHTML = '<p class="empty-inline">검색 중 오류가 났어요. 지도를 직접 눌러서 위치를 선택해주세요.</p>';
+    }
+  }
+
+  document.getElementById('mapsearch_btn').addEventListener('click', doSearch);
+  document.getElementById('mapsearch_query').addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter'){ ev.preventDefault(); doSearch(); }
+  });
+  document.getElementById('mapsearch_useBtn').addEventListener('click', function(){
+    if(!selected) return;
+    onSelect(selected.name, selected.lat, selected.lng);
+    closeSheet('mapSearchSheet');
+  });
+}
+
+function openImageViewer(dataUrl){
+  var overlay = document.getElementById('imgViewerOverlay');
+  document.getElementById('imgViewerImg').src = dataUrl;
+  overlay.style.display = 'flex';
+}
+function closeImageViewer(){
+  document.getElementById('imgViewerOverlay').style.display = 'none';
+  document.getElementById('imgViewerImg').src = '';
+}
+function imagePreviewHTML(prefix, dataUrl){
+  if(dataUrl){
+    return '<div style="position:relative;display:inline-block;">'+
+      '<img src="'+dataUrl+'" style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--line);cursor:pointer;display:block;" id="'+prefix+'_thumb">'+
+      '<button type="button" id="'+prefix+'_removeBtn" style="position:absolute;top:-6px;right:-6px;background:var(--brick);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:0.75rem;cursor:pointer;line-height:1;">✕</button>'+
+      '</div>';
+  }
+  return '<button type="button" class="chip" id="'+prefix+'_addBtn">📷 사진 추가</button>';
+}
+function wireImageFieldGlobal(prefix, getCurrent, setCurrent, inputId, compressOpts){
+  function refresh(){
+    document.getElementById(prefix+'Preview').innerHTML = imagePreviewHTML(prefix, getCurrent());
+    wire();
+  }
+  function wire(){
+    var addBtn = document.getElementById(prefix+'_addBtn');
+    if(addBtn) addBtn.addEventListener('click', function(){ document.getElementById(inputId).click(); });
+    var removeBtn = document.getElementById(prefix+'_removeBtn');
+    if(removeBtn) removeBtn.addEventListener('click', function(){ setCurrent(null); refresh(); });
+    var thumb = document.getElementById(prefix+'_thumb');
+    if(thumb) thumb.addEventListener('click', function(){ openImageViewer(getCurrent()); });
+  }
+  wire();
+  document.getElementById(inputId).addEventListener('change', function(ev){
+    var file = ev.target.files[0];
+    if(!file) return;
+    var opts = compressOpts || {};
+    compressImageToDataURL(file, function(dataUrl){ setCurrent(dataUrl); refresh(); }, opts.maxWidth, opts.quality);
+  });
+}
+
+var toastTimer = null;
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+function openSheet(id){
+  document.getElementById(id).classList.add('open');
+  document.getElementById('sheetBackdrop').classList.add('open');
+}
+function closeSheet(id){
+  document.getElementById(id).classList.remove('open');
+  document.getElementById('sheetBackdrop').classList.remove('open');
+}
+function niceDate(dateStr){
+  var d = new Date(dateStr+'T00:00:00');
+  var days = ['일','월','화','수','목','금','토'];
+  return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
+}
+function shortDateLabel(dateStr){
+  var d = new Date(dateStr+'T00:00:00');
+  return (d.getMonth()+1)+'.'+d.getDate();
+}
+function addDays(dateStr, n){
+  var d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function daysBetweenInclusive(startStr, endStr){
+  var s = new Date(startStr+'T00:00:00'), e = new Date(endStr+'T00:00:00');
+  return Math.round((e - s) / 86400000) + 1;
+}
+
+// ---------- 앱 상태 ----------
+var currentMember = null;
+var LOCAL_SESSION_KEY = 'soggroupcommu_session_v1';
+var groups = [];
+var members = [];
+var activities = [];
+var attendance = [];
+var announcements = [];
+var readingPlans = [];
+var activityTypes = [];
+var readingProgress = [];
+var activeTab = 'calendar';
+var calYear, calMonth;
+var selectedCalDate = null;
+
+// ---------- 데이터 로드/저장 ----------
+async function loadGroups(){
+  try{
+    var res = await supabaseClient.from('sg_groups').select('*').order('name');
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadGroups network error:', err); return []; }
+}
+async function loadMembers(groupId){
+  try{
+    var q = supabaseClient.from('sg_members').select('*').order('name');
+    if(groupId) q = q.eq('group_id', groupId);
+    var res = await q;
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadMembers network error:', err); return []; }
+}
+async function loadActivities(groupId){
+  try{
+    var res = await supabaseClient.from('sg_activities').select('*').eq('group_id', groupId).order('date');
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadActivities network error:', err); return []; }
+}
+async function loadAttendance(activityIds){
+  if(!activityIds || activityIds.length === 0) return [];
+  try{
+    var res = await supabaseClient.from('sg_attendance').select('*').in('activity_id', activityIds);
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadAttendance network error:', err); return []; }
+}
+async function loadAnnouncements(groupId){
+  try{
+    await supabaseClient.from('sg_announcements').delete().eq('group_id', groupId).lt('expires_at', todayStr()).not('expires_at', 'is', null);
+    var res = await supabaseClient.from('sg_announcements').select('*').eq('group_id', groupId).order('created_at', {ascending:false});
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadAnnouncements network error:', err); return []; }
+}
+async function loadReadingPlan(memberId){
+  try{
+    var res = await supabaseClient.from('sg_reading_plans').select('*').eq('member_id', memberId).order('created_at', {ascending:false}).limit(1);
+    if(res.error){ console.error(res.error); return null; }
+    return (res.data && res.data[0]) || null;
+  }catch(err){ console.error('loadReadingPlan network error:', err); return null; }
+}
+async function loadReadingProgress(planId){
+  try{
+    var res = await supabaseClient.from('sg_reading_progress').select('*').eq('plan_id', planId);
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadReadingProgress network error:', err); return []; }
+}
+
+async function loadAllMembersAcrossGroups(){
+  try{
+    var res = await supabaseClient.from('sg_members').select('*').neq('role', 'super_admin').order('name');
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadAllMembersAcrossGroups error:', err); return []; }
+}
+async function loadActivityTypes(groupId){
+  try{
+    var res = await supabaseClient.from('sg_activity_types').select('*').eq('group_id', groupId).order('name');
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadActivityTypes network error:', err); return []; }
+}
+
+var currentGroupInfo = null;
+var systemSettingsInfo = null;
+async function loadSystemSettings(){
+  try{
+    var res = await supabaseClient.from('sg_system_settings').select('*').eq('id', 'global').limit(1);
+    if(res.error){ console.error(res.error); systemSettingsInfo = null; return; }
+    systemSettingsInfo = (res.data && res.data[0]) || null;
+  }catch(err){ console.error('loadSystemSettings error:', err); systemSettingsInfo = null; }
+}
+function applyAppearance(group){
+  var body = document.body;
+  body.classList.remove('theme-blue','theme-rose','theme-dark','font-gothic','font-serif');
+  if(group){
+    if(group.theme && group.theme !== 'default') body.classList.add('theme-'+group.theme);
+    if(group.font_family && group.font_family !== 'default') body.classList.add('font-'+(group.font_family==='gothic'?'gothic':'serif'));
+    document.documentElement.style.setProperty('--font-scale', group.font_size_scale || 1);
+  }else{
+    document.documentElement.style.setProperty('--font-scale', 1);
+  }
+}
+function applyLoginHeaderBg(group){
+  var block = document.getElementById('login_logoBlock');
+  if(!block) return;
+  if(group && group.header_bg_mode === 'custom' && group.header_bg_image){
+    block.style.backgroundImage = 'url(\''+group.header_bg_image+'\')';
+    block.style.backgroundSize = 'cover';
+    block.style.backgroundPosition = 'center';
+  }else{
+    block.style.backgroundImage = 'none';
+  }
+}
+
+async function loadGroupData(groupId){
+  members = await loadMembers(groupId);
+  activities = await loadActivities(groupId);
+  attendance = await loadAttendance(activities.map(function(a){ return a.id; }));
+  announcements = await loadAnnouncements(groupId);
+  activityTypes = await loadActivityTypes(groupId);
+  try{
+    var gRes = await supabaseClient.from('sg_groups').select('*').eq('id', groupId).limit(1);
+    currentGroupInfo = (gRes.data && gRes.data[0]) || null;
+  }catch(err){ console.error('loadGroupData group info error:', err); }
+  await loadSystemSettings();
+}
+
+// ---------- 메인 앱 셸 ----------
+function renderMainApp(){
+  var app = document.getElementById('app');
+  var now = new Date();
+  if(calYear == null){ calYear = now.getFullYear(); calMonth = now.getMonth()+1; }
+
+  var html = '';
+  applyAppearance(currentGroupInfo);
+  var logoTitle = (currentGroupInfo && currentGroupInfo.logo_title) || '소그룹커뮤';
+  var logoColor = (currentGroupInfo && currentGroupInfo.logo_color) || '';
+  var logoPosition = (currentGroupInfo && currentGroupInfo.logo_position) || 'left';
+  var headerBgStyle = '';
+  if(currentGroupInfo && currentGroupInfo.header_bg_mode === 'custom' && currentGroupInfo.header_bg_image){
+    headerBgStyle = ' style="background-image:url('+"'"+currentGroupInfo.header_bg_image+"'"+');background-size:cover;background-position:center;"';
+  }
+  html += '<div class="header"'+headerBgStyle+'>';
+  html += '<div style="flex:1;text-align:'+logoPosition+';"><h1'+(logoColor?' style="color:'+logoColor+';"':'')+'>🙏 '+escapeHtml(logoTitle)+'</h1><p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p></div>';
+  html += '<button class="btn" id="logoutBtn" type="button" style="padding:7px 12px;font-size:0.7812rem;">로그아웃</button>';
+  html += '</div>';
+  html += '<div id="tabContent"></div>';
+  html += '<div class="tabbar">';
+  html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span>캘린더</button>';
+  html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span>멤버</button>';
+  html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my"><span class="ico">🙋</span>마이</button>';
+  var memberPerms = getPermissionSettings().member;
+  var memberHasAnySettingAccess = memberPerms.activity_types || memberPerms.appearance || memberPerms.bible_settings || memberPerms.group_management;
+  if(isAdminRole(currentMember.role) || memberHasAnySettingAccess){
+    html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">⚙️</span>설정</button>';
+  }
+  html += '</div>';
+
+  app.innerHTML = html;
+
+  document.getElementById('logoutBtn').addEventListener('click', function(){
+    clearSession();
+    currentMember = null;
+    renderLoginScreen();
+  });
+  document.querySelectorAll('.tabbar button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeTab = btn.getAttribute('data-tab');
+      renderActiveTab();
+    });
+  });
+
+  renderActiveTab();
+}
+
+function renderActiveTab(){
+  document.querySelectorAll('.tabbar button').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab') === activeTab);
+  });
+  if(activeTab === 'calendar') renderCalendarTab();
+  else if(activeTab === 'members') renderMembersTab();
+  else if(activeTab === 'my') renderMyTab();
+  else if(activeTab === 'settings') renderSettingsTab();
+}
+
+// ---------- 멤버 탭 ----------
+var memberStatPeriodType = 'week';
+var memberStatAnchor = todayStr();
+var memberListPage = 1;
+var memberStatActivityType = 'all';
+
+function getStatPeriodRange(type, anchor){
+  var d = new Date(anchor+'T00:00:00');
+  if(type === 'week'){
+    var dow = d.getDay();
+    var start = addDays(anchor, -dow);
+    var end = addDays(anchor, 6-dow);
+    var s = new Date(start+'T00:00:00'), e = new Date(end+'T00:00:00');
+    var label = (s.getMonth()+1)+'.'+s.getDate()+' ~ '+(e.getMonth()+1)+'.'+e.getDate();
+    return { start: start, end: end, label: label };
+  }
+  if(type === 'month'){
+    var y = d.getFullYear(), m = d.getMonth();
+    var start2 = y+'-'+String(m+1).padStart(2,'0')+'-01';
+    var lastDay = new Date(y, m+1, 0).getDate();
+    var end2 = y+'-'+String(m+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+    return { start: start2, end: end2, label: y+'년 '+(m+1)+'월' };
+  }
+  var y2 = d.getFullYear();
+  return { start: y2+'-01-01', end: y2+'-12-31', label: y2+'년' };
+}
+function shiftStatAnchor(type, dir){
+  var d = new Date(memberStatAnchor+'T00:00:00');
+  if(type === 'week'){
+    memberStatAnchor = addDays(memberStatAnchor, dir*7);
+  }else if(type === 'month'){
+    var y = d.getFullYear(), m = d.getMonth() + dir;
+    var newY = y + Math.floor(m/12);
+    var newM = ((m % 12) + 12) % 12;
+    memberStatAnchor = newY+'-'+String(newM+1).padStart(2,'0')+'-01';
+  }else{
+    memberStatAnchor = (d.getFullYear()+dir)+'-01-01';
+  }
+}
+
+function computeAttendanceStats(range, activityTypeFilter){
+  var relevantActivityIds = {};
+  activities.forEach(function(a){
+    var inRange = !range || (a.date >= range.start && a.date <= range.end);
+    var matchesType = !activityTypeFilter || activityTypeFilter === 'all' || a.activity_type === activityTypeFilter;
+    if(inRange && matchesType){ relevantActivityIds[a.id] = true; }
+  });
+  var stats = {};
+  members.forEach(function(m){ stats[m.id] = { present:0, total:0 }; });
+  attendance.forEach(function(a){
+    if(!stats[a.member_id]) return;
+    if(!relevantActivityIds[a.activity_id]) return;
+    stats[a.member_id].total++;
+    if(a.present) stats[a.member_id].present++;
+  });
+  return stats;
+}
+
+var DONUT_COLORS = ['#3F6357','#A8452F','#B8791E','#2B6FCB','#8A7B4E','#6B4E8A','#4E8A7A','#C25B8A'];
+function renderDonutSVG(dataArr, size, holeRatio){
+  size = size || 140;
+  holeRatio = holeRatio || 0.6;
+  var total = dataArr.reduce(function(s,d){ return s+d.value; }, 0);
+  var r = size/2;
+  var strokeW = r*(1-holeRatio);
+  var radius = r - strokeW/2;
+  var circumference = 2*Math.PI*radius;
+  var offsetAcc = 0;
+  var svg = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">';
+  if(total === 0){
+    svg += '<circle cx="'+r+'" cy="'+r+'" r="'+radius+'" fill="none" stroke="var(--line)" stroke-width="'+strokeW+'"/>';
+  }else{
+    dataArr.forEach(function(d){
+      if(d.value <= 0) return;
+      var frac = d.value/total;
+      var dash = frac*circumference;
+      svg += '<circle cx="'+r+'" cy="'+r+'" r="'+radius+'" fill="none" stroke="'+d.color+'" stroke-width="'+strokeW+'" '+
+        'stroke-dasharray="'+dash+' '+(circumference-dash)+'" stroke-dashoffset="'+(-offsetAcc)+'" transform="rotate(-90 '+r+' '+r+')"/>';
+      offsetAcc += dash;
+    });
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+async function loadLatestPlansForMembers(memberIds){
+  if(!memberIds || memberIds.length === 0) return {};
+  try{
+    var res = await supabaseClient.from('sg_reading_plans').select('*').in('member_id', memberIds).order('created_at', {ascending:false});
+    if(res.error){ console.error(res.error); return {}; }
+    var map = {};
+    (res.data||[]).forEach(function(p){ if(!map[p.member_id]) map[p.member_id] = p; });
+    return map;
+  }catch(err){ console.error('loadLatestPlansForMembers error:', err); return {}; }
+}
+async function loadCompletedCountsInRange(planIds, start, end){
+  if(!planIds || planIds.length === 0) return [];
+  try{
+    var res = await supabaseClient.from('sg_reading_progress').select('*').in('plan_id', planIds).eq('completed', true).gte('date', start).lte('date', end);
+    if(res.error){ console.error(res.error); return []; }
+    return res.data || [];
+  }catch(err){ console.error('loadCompletedCountsInRange error:', err); return []; }
+}
+
+async function renderMembersTab(){
+  var el = document.getElementById('tabContent');
+  var range = getStatPeriodRange(memberStatPeriodType, memberStatAnchor);
+  var stats = computeAttendanceStats(range, memberStatActivityType);
+  var isAdmin = isAdminRole(currentMember.role);
+
+  var memberIds = members.map(function(m){ return m.id; });
+  var plansByMember = await loadLatestPlansForMembers(memberIds);
+  var planIds = Object.keys(plansByMember).map(function(mid){ return plansByMember[mid].id; });
+  var completedRows = await loadCompletedCountsInRange(planIds, range.start, range.end);
+  var readCountByPlan = {};
+  completedRows.forEach(function(r){ readCountByPlan[r.plan_id] = (readCountByPlan[r.plan_id]||0)+1; });
+  var readingRanking = members.map(function(m){
+    var plan = plansByMember[m.id];
+    var count = plan ? (readCountByPlan[plan.id]||0) : 0;
+    return { member: m, count: count, hasPlan: !!plan };
+  }).filter(function(r){ return r.hasPlan; }).sort(function(a,b){ return b.count - a.count; });
+
+  var html = '<div class="screen">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  html += '<h2 style="font-size:1rem;">👥 소그룹 멤버 ('+members.length+'명)</h2>';
+  if(isAdmin){ html += '<button class="btn" id="mem_addBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 멤버 추가</button>'; }
+  html += '</div>';
+
+  html += '<div class="chiprow" id="mem_periodChips" style="margin-bottom:8px;">';
+  ['week','month','year'].forEach(function(t){
+    var label = t==='week'?'주':(t==='month'?'월':'연');
+    html += '<button type="button" class="chip'+(memberStatPeriodType===t?' selected':'')+'" data-periodtype="'+t+'">'+label+'</button>';
+  });
+  html += '</div>';
+  html += '<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:12px;">';
+  html += '<button class="btn" id="mem_periodPrev" type="button" style="padding:6px 10px;">‹</button>';
+  html += '<span style="font-weight:700;">'+range.label+'</span>';
+  html += '<button class="btn" id="mem_periodNext" type="button" style="padding:6px 10px;">›</button>';
+  html += '</div>';
+
+  if(activityTypes.length > 0){
+    html += '<div class="chiprow" id="mem_activityTypeChips" style="margin-bottom:12px;">';
+    html += '<button type="button" class="chip'+(memberStatActivityType==='all'?' selected':'')+'" data-activitytype="all">전체 항목</button>';
+    activityTypes.forEach(function(t){
+      html += '<button type="button" class="chip'+(memberStatActivityType===t.name?' selected':'')+'" data-activitytype="'+escapeHtml(t.name)+'">'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</button>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="card" style="text-align:center;">';
+  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):'')+'</p>';
+  var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
+  var totalPresentAll = donutData.reduce(function(s,d){ return s+d.value; }, 0);
+  html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(donutData, 150, 0.62)+
+    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
+    '<p style="font-size:1.25rem;font-weight:800;">'+totalPresentAll+'</p><p class="savehint">총 출석</p></div></div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
+  donutData.forEach(function(d){
+    if(d.value<=0) return;
+    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+'회</span>';
+  });
+  html += '</div></div>';
+
+  if(readingRanking.length > 0){
+    html += '<div class="card">';
+    html += '<p class="field-label-strong" style="margin-bottom:10px;">📖 통독 현황 (선택 기간 읽은 날 수)</p>';
+    var topPerformers = readingRanking.slice(0, Math.min(3, readingRanking.length)).filter(function(r){ return r.count > 0; });
+    var needsEncouragement = readingRanking.slice(-Math.min(3, readingRanking.length)).filter(function(r){ return r.count === 0 || r.count < readingRanking[0].count; }).reverse();
+    if(topPerformers.length > 0){
+      html += '<p class="savehint" style="font-weight:700;color:var(--pine);margin-bottom:4px;">🏆 통독 우등멤버</p>';
+      topPerformers.forEach(function(r){ html += '<div class="member-row"><span>'+escapeHtml(r.member.name)+'</span><span class="savehint">'+r.count+'일</span></div>'; });
+    }
+    if(needsEncouragement.length > 0){
+      html += '<p class="savehint" style="font-weight:700;color:var(--amber);margin:10px 0 4px;">💪 분발멤버</p>';
+      needsEncouragement.forEach(function(r){ html += '<div class="member-row"><span>'+escapeHtml(r.member.name)+'</span><span class="savehint">'+r.count+'일</span></div>'; });
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="card">';
+  var PAGE_SIZE = 5;
+  var usesPaging = members.length > 10;
+  var totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
+  if(memberListPage > totalPages) memberListPage = totalPages;
+  if(memberListPage < 1) memberListPage = 1;
+  var pageMembers = usesPaging ? members.slice((memberListPage-1)*PAGE_SIZE, memberListPage*PAGE_SIZE) : members;
+
+  pageMembers.forEach(function(m){
+    var st = stats[m.id] || {present:0,total:0};
+    var pct = st.total > 0 ? Math.round(st.present/st.total*100) : 0;
+    html += '<div class="member-row"><div style="display:flex;align-items:center;gap:10px;">';
+    if(m.photo_image){
+      html += '<img src="'+m.photo_image+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;">';
+    }else{
+      html += '<div style="width:36px;height:36px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:0.9375rem;flex-shrink:0;">👤</div>';
+    }
+    html += '<div>';
+    var isBirthdayToday = m.birthday && m.birthday.slice(5) === todayStr().slice(5);
+    html += '<span style="font-weight:600;">'+escapeHtml(m.name)+'</span>'+(isBirthdayToday?' 🎂':'');
+    if(m.role==='admin' || m.role==='super_admin') html += roleBadgeHTML(m.role);
+    if(m.position) html += ' <span class="savehint">('+escapeHtml(m.position)+')</span>';
+    html += '<p class="savehint">출석 '+st.present+'/'+st.total+'회 ('+pct+'%)</p>';
+    html += '</div></div>';
+    if(isAdmin){
+      html += '<div style="display:flex;gap:6px;">';
+      html += '<button class="chip" data-mem-edit="'+m.id+'" style="font-size:0.75rem;padding:6px 10px;">관리</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  if(members.length === 0) html += '<p class="empty-inline">등록된 멤버가 없어요.</p>';
+  html += '</div>';
+
+  if(usesPaging){
+    html += '<div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;">';
+    html += '<button class="btn" id="mem_pagePrev" type="button" style="padding:6px 10px;"'+(memberListPage<=1?' disabled':'')+'>‹</button>';
+    html += '<span class="savehint">'+memberListPage+' / '+totalPages+'페이지</span>';
+    html += '<button class="btn" id="mem_pageNext" type="button" style="padding:6px 10px;"'+(memberListPage>=totalPages?' disabled':'')+'>›</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '<button class="btn btn-block" id="mem_prayerAnswerBtn" type="button" style="margin-top:14px;">🙏 기도응답 현황</button>';
+
+  el.innerHTML = html;
+
+  document.getElementById('mem_prayerAnswerBtn').addEventListener('click', openPrayerAnswerScreen);
+
+  if(usesPaging){
+    var prevBtn = document.getElementById('mem_pagePrev');
+    var nextBtn = document.getElementById('mem_pageNext');
+    if(prevBtn) prevBtn.addEventListener('click', function(){ memberListPage--; renderMembersTab(); });
+    if(nextBtn) nextBtn.addEventListener('click', function(){ memberListPage++; renderMembersTab(); });
+  }
+
+  document.querySelectorAll('#mem_periodChips [data-periodtype]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      memberStatPeriodType = chip.getAttribute('data-periodtype');
+      renderMembersTab();
+    });
+  });
+  document.getElementById('mem_periodPrev').addEventListener('click', function(){ shiftStatAnchor(memberStatPeriodType, -1); renderMembersTab(); });
+  document.getElementById('mem_periodNext').addEventListener('click', function(){ shiftStatAnchor(memberStatPeriodType, 1); renderMembersTab(); });
+  var typeChipsEl = document.getElementById('mem_activityTypeChips');
+  if(typeChipsEl){
+    typeChipsEl.querySelectorAll('[data-activitytype]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        memberStatActivityType = chip.getAttribute('data-activitytype');
+        renderMembersTab();
+      });
+    });
+  }
+
+  if(isAdmin){
+    document.getElementById('mem_addBtn').addEventListener('click', function(){ openMemberForm(null); });
+    el.querySelectorAll('[data-mem-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var m = members.find(function(x){ return x.id === btn.getAttribute('data-mem-edit'); });
+        openMemberForm(m);
+      });
+    });
+  }
+}
+
+async function openMemberForm(existing){
+  var e = existing || {};
+  var html = '';
+  html += '<div class="field"><span class="field-label">이름</span><input type="text" id="mem_name" value="'+escapeHtml(e.name||'')+'"></div>';
+  html += '<div class="field"><span class="field-label">사진(선택)</span>';
+  html += '<input type="file" accept="image/*" id="mem_photoInput" style="display:none;">';
+  html += '<div id="mem_photoPreview">'+imagePreviewHTML('mem_photo', e.photo_image)+'</div></div>';
+  html += '<div class="field"><span class="field-label">PIN 번호(4자리)</span><input type="password" id="mem_pin" inputmode="numeric" value="'+escapeHtml(e.pin||'')+'"></div>';
+  html += '<div class="field"><span class="field-label">생일(선택)</span><input type="date" id="mem_birthday" value="'+(e.birthday||'')+'"></div>';
+  html += '<div class="field"><span class="field-label">직분(선택)</span><select id="mem_position">';
+  html += '<option value=""'+(!e.position?' selected':'')+'>선택 안 함</option>';
+  ['순장','집사','안수집사','권사','장로','전도사','목사'].forEach(function(pos){
+    html += '<option value="'+pos+'"'+(e.position===pos?' selected':'')+'>'+pos+'</option>';
+  });
+  html += '</select></div>';
+  html += '<div class="field"><span class="field-label">권한</span><div class="chiprow">';
+  html += '<button type="button" class="chip'+((e.role||'member')==='member'?' selected':'')+'" data-role="member">일반 멤버</button>';
+  html += '<button type="button" class="chip'+(e.role==='admin'?' selected':'')+'" data-role="admin">관리자</button>';
+  if(currentMember.role === 'super_admin'){
+    html += '<button type="button" class="chip'+(e.role==='super_admin'?' selected':'')+'" data-role="super_admin">최고관리자</button>';
+  }
+  html += '</div></div>';
+
+  if(existing){
+    groups = await loadGroups();
+    html += '<div class="field"><span class="field-label">소속 소그룹</span><select id="mem_group">';
+    groups.forEach(function(g){ html += '<option value="'+g.id+'"'+(g.id===existing.group_id?' selected':'')+'>'+escapeHtml(g.name)+'</option>'; });
+    html += '</select></div>';
+    html += '<p class="savehint">다른 소그룹을 선택하면 이 멤버가 그 소그룹으로 이동해요(출석·통독 기록은 그대로 유지돼요).</p>';
+  }
+
+  html += '<button class="btn btn-primary btn-block" id="mem_saveBtn" type="button" style="margin-top:10px;">'+(existing?'수정 완료':'등록')+'</button>';
+  if(existing){
+    html += '<button class="btn btn-danger btn-block" id="mem_deleteBtn" type="button" style="margin-top:8px;">멤버 삭제</button>';
+  }
+
+  document.getElementById('genericSheetTitle').textContent = existing ? '✏️ 멤버 정보 수정' : '➕ 멤버 추가';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  var selectedRole = e.role || 'member';
+  document.querySelectorAll('#genericSheetBody [data-role]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      selectedRole = chip.getAttribute('data-role');
+      document.querySelectorAll('#genericSheetBody [data-role]').forEach(function(c){ c.classList.remove('selected'); });
+      chip.classList.add('selected');
+    });
+  });
+
+  var currentMemberPhoto = e.photo_image || null;
+  wireImageFieldGlobal('mem_photo', function(){ return currentMemberPhoto; }, function(v){ currentMemberPhoto = v; }, 'mem_photoInput');
+
+  if(existing){
+    document.getElementById('mem_deleteBtn').addEventListener('click', async function(){
+      if(members.length <= 1){ showToast('마지막 멤버는 삭제할 수 없어요.'); return; }
+      await supabaseClient.from('sg_members').delete().eq('id', existing.id);
+      closeSheet('genericSheet');
+      await loadGroupData(currentMember.group_id);
+      renderMembersTab();
+      showToast('삭제했어요.');
+    });
+  }
+
+  document.getElementById('mem_saveBtn').addEventListener('click', async function(){
+    var name = document.getElementById('mem_name').value.trim();
+    var pin = document.getElementById('mem_pin').value.trim();
+    if(!name || !pin){ showToast('이름과 PIN을 입력해주세요.'); return; }
+
+    var payload = {
+      name: name, pin: pin, role: selectedRole,
+      birthday: document.getElementById('mem_birthday').value || null,
+      position: document.getElementById('mem_position').value || null,
+      photo_image: currentMemberPhoto
+    };
+    var res;
+    var movedToGroupId = null;
+    if(existing){
+      var groupSelect = document.getElementById('mem_group');
+      if(groupSelect){
+        movedToGroupId = groupSelect.value;
+        payload.group_id = movedToGroupId;
+      }
+      res = await supabaseClient.from('sg_members').update(payload).eq('id', existing.id);
+    }else{
+      payload.id = uid();
+      payload.group_id = currentMember.group_id;
+      res = await supabaseClient.from('sg_members').insert(payload);
+    }
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+
+    var reloadGroupId = currentMember.group_id;
+    if(existing && existing.id === currentMember.id && movedToGroupId){
+      currentMember.group_id = movedToGroupId;
+      reloadGroupId = movedToGroupId;
+    }
+
+    closeSheet('genericSheet');
+    await loadGroupData(reloadGroupId);
+    renderMembersTab();
+    showToast(existing ? '수정했어요.' : '등록했어요.');
+  });
+}
+
+// ---------- 성경통독 계산 및 본문 조회 ----------
+function computeReadingPlanDayRange(plan, dateIso){
+  var books = plan.testament === 'OT' ? OT_BOOKS : (plan.testament === 'NT' ? NT_BOOKS : OT_BOOKS.concat(NT_BOOKS));
+  var flat = flattenBooks(books);
+  var totalChapters = flat.length;
+  var totalDays = daysBetweenInclusive(plan.start_date, plan.end_date);
+  if(totalDays <= 0) return null;
+
+  var dayIndex = daysBetweenInclusive(plan.start_date, dateIso) - 1;
+  if(dayIndex < 0 || dayIndex >= totalDays) return null;
+
+  var base = Math.floor(totalChapters / totalDays);
+  var extra = totalChapters % totalDays;
+  var startIdx = dayIndex * base + Math.min(dayIndex, extra);
+  var countForDay = base + (dayIndex < extra ? 1 : 0);
+  var endIdx = startIdx + countForDay;
+  if(countForDay <= 0) return { chapters: [] };
+
+  return { chapters: flat.slice(startIdx, endIdx) };
+}
+function testamentTotalChapters(testament){
+  if(testament === 'OT') return 929;
+  if(testament === 'NT') return 260;
+  return 1189;
+}
+function formatChapterRange(chapters){
+  if(!chapters || chapters.length === 0) return '오늘은 읽을 분량이 없어요.';
+  var first = chapters[0], last = chapters[chapters.length-1];
+  if(first.book === last.book){
+    return first.chapter === last.chapter
+      ? first.book+' '+first.chapter+'장'
+      : first.book+' '+first.chapter+'장 ~ '+last.chapter+'장';
+  }
+  return first.book+' '+first.chapter+'장 ~ '+last.book+' '+last.chapter+'장';
+}
+function formatStoredRange(progressRow, plan){
+  if(progressRow && progressRow.range_start_book){
+    return formatChapterRange([
+      { book: progressRow.range_start_book, chapter: progressRow.range_start_chapter },
+      { book: progressRow.range_end_book, chapter: progressRow.range_end_chapter }
+    ]);
+  }
+  if(plan){
+    var range = computeReadingPlanDayRange(plan, progressRow ? progressRow.date : null);
+    return formatChapterRange(range ? range.chapters : []);
+  }
+  return '오늘은 읽을 분량이 없어요.';
+}
+function getStoredStartChapter(progressRow, plan, dateIso){
+  if(progressRow && progressRow.range_start_book){
+    return { book: progressRow.range_start_book, chapter: progressRow.range_start_chapter };
+  }
+  var range = computeReadingPlanDayRange(plan, dateIso);
+  return range && range.chapters[0] ? range.chapters[0] : null;
+}
+
+// --- Supabase DB 성경 본문 쿼리 ---
+async function loadBibleChapter(book, chapter){
+  var code = BSKOREA_BOOK_CODE[book];
+  var shortBook = book.slice(0, 1);
+  var cNum = Number(chapter);
+
+  var r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  if (code) {
+    r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code', code).eq('chapter', cNum).order('verse', {ascending:true});
+    if (!r.error && r.data && r.data.length > 0) return r;
+  }
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book', '%' + book + '%').eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', shortBook).eq('chapter', cNum).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', String(chapter)).order('verse', {ascending:true});
+  if (!r.error && r.data && r.data.length > 0) return r;
+
+  var testAll = await supabaseClient.from('bible').select('book,book_code,chapter').limit(3);
+  if (testAll.error) {
+    return { data: [], error: testAll.error };
+  }
+  if (!testAll.data || testAll.data.length === 0) {
+    return { data: [], error: { message: "Supabase 'bible' 테이블에 데이터가 전혀 없거나 RLS(보안정책)로 읽기가 차단되어 있습니다." } };
+  }
+
+  var sampleRow = testAll.data[0];
+  return { 
+    data: [], 
+    error: { 
+      message: "'" + book + "' 말씀을 찾지 못했습니다. (DB 실제 데이터 포맷 예시: book='" + (sampleRow.book||'') + "', book_code='" + (sampleRow.book_code||'') + "')" 
+    } 
+  };
+}
+
+function buildReadingChapterList(chapters){
+  if(!chapters || !chapters.length) return [];
+  var books = flattenBooks(OT_BOOKS).concat(flattenBooks(NT_BOOKS));
+  var si = books.findIndex(function(x){return x.book===chapters[0].book && x.chapter===chapters[0].chapter;});
+  var ei = books.findIndex(function(x){return x.book===chapters[chapters.length-1].book && x.chapter===chapters[chapters.length-1].chapter;});
+  if(si<0 || ei<si) return chapters.slice();
+  return books.slice(si,ei+1);
+}
+
+// --- 앱 내 성경 말씀 뷰어 ---
+async function openBibleReader(dateIso, plan, chapters, done){
+  var body = document.getElementById('dailyReadingSheetBody');
+  var progressForReader = await loadReadingProgress(plan.id);
+  var existingRowForReader = progressForReader.find(function(p){ return p.date === dateIso; });
+  var chapterList = buildReadingChapterList(chapters), currentIndex = 0;
+
+  async function renderChapter(){
+    var ch = chapterList[currentIndex];
+    body.innerHTML = '<div class="bible-loading">말씀을 불러오는 중…</div>';
+    var res = await loadBibleChapter(ch.book, ch.chapter);
+    if(res.error){
+      body.innerHTML = '<div class="card"><p style="font-weight:700;color:var(--brick);">말씀을 불러오지 못했어요.</p><p class="savehint" style="margin-top:6px;">'+escapeHtml(res.error.message||'알 수 없는 오류')+'</p></div>';
+      return;
+    }
+    var verses = res.data || [], html = '';
+    html += '<div class="bible-reader-head"><div><p class="savehint">'+niceDate(dateIso)+' · 오늘의 통독</p><h2 class="bible-chapter-title">'+escapeHtml(ch.book)+' '+ch.chapter+'장</h2></div><span class="bible-page-count">'+(currentIndex+1)+' / '+chapterList.length+'장</span></div>';
+    html += '<div class="bible-range-note">통독 범위 · '+formatChapterRange(chapters)+'</div>';
+    if(!verses.length){
+      html += '<div class="card"><p class="empty-inline">이 장의 말씀을 찾지 못했어요.</p></div>';
+    }else{
+      html += '<article class="bible-text">';
+      verses.forEach(function(v){
+        html += '<p class="bible-verse"><sup>'+v.verse+'</sup>'+escapeHtml(v.text)+'</p>';
+      });
+      html += '</article>';
+    }
+    html += '<div class="bible-nav"><button class="btn" id="biblePrevBtn" type="button"'+(currentIndex===0?' disabled':'')+'>‹ 이전 장</button><button class="btn" id="bibleNextBtn" type="button"'+(currentIndex===chapterList.length-1?' disabled':'')+'>다음 장 ›</button></div>';
+    if(currentIndex === chapterList.length-1){
+      if(done){
+        html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);margin-top:10px;"><p style="font-weight:700;color:var(--pine);">✅ 오늘의 통독 완료</p></div>';
+      }else{
+        html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:10px;">읽기 완료</button>';
+      }
+    }else{
+      html += '<p class="savehint" style="text-align:center;margin-top:10px;">마지막 장까지 읽은 후 「읽기 완료」를 눌러주세요.</p>';
+    }
+    body.innerHTML = html;
+    var prev = document.getElementById('biblePrevBtn'), next = document.getElementById('bibleNextBtn');
+    if(prev) prev.addEventListener('click', function(){ currentIndex--; renderChapter(); });
+    if(next) next.addEventListener('click', function(){ currentIndex++; renderChapter(); });
+    var complete = document.getElementById('dr_completeBtn');
+    if(complete) complete.addEventListener('click', async function(){
+      var first = chapters[0], last = chapters[chapters.length-1], rangeFields = { range_start_book: first.book, range_start_chapter: first.chapter, range_end_book: last.book, range_end_chapter: last.chapter };
+      var payload = existingRowForReader
+        ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
+        : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
+      var saveRes = existingRowForReader
+        ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRowForReader.id)
+        : await supabaseClient.from('sg_reading_progress').insert(payload);
+      if(saveRes.error){ showToast('저장 실패: '+saveRes.error.message); return; }
+      showToast('오늘의 통독을 완료했어요! 🎉');
+      done = true;
+      renderChapter();
+    });
+  }
+  await renderChapter();
+}
+
+// ---------- 마이 탭 ----------
+var expandedReadingMonths = {};
+var expandedPermGroups = {};
+
+async function renderMyTab(){
+  var el = document.getElementById('tabContent');
+  var plan = await loadReadingPlan(currentMember.id);
+  var progress = plan ? await loadReadingProgress(plan.id) : [];
+  var completedCount = progress.filter(function(p){ return p.completed; }).length;
+  var totalDays = plan ? daysBetweenInclusive(plan.start_date, plan.end_date) : 0;
+  var pct = totalDays > 0 ? Math.round(completedCount/totalDays*100) : 0;
+
+  var html = '<div class="screen">';
+  html += '<div class="card">';
+  html += '<div style="display:flex;align-items:center;gap:10px;">';
+  if(currentMember.photo_image){
+    html += '<img src="'+currentMember.photo_image+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">';
+  }else{
+    html += '<div style="width:44px;height:44px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:1.125rem;flex-shrink:0;">👤</div>';
+  }
+  html += '<p class="field-label-strong">🙋 '+escapeHtml(currentMember.name)+'님'+(currentMember.position?' <span class="savehint">('+escapeHtml(currentMember.position)+')</span>':'')+'</p>';
+  html += '</div>';
+  html += '<button class="btn btn-block" id="my_pinBtn" type="button" style="margin-top:10px;">🔒 비밀번호(PIN) 변경</button>';
+  html += '</div>';
+
+  html += '<div class="card">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+  html += '<p class="field-label-strong">📖 성경통독</p>';
+  html += '<button class="chip" id="my_readingSetBtn" type="button">'+(plan?'설정 변경':'통독 설정하기')+'</button>';
+  html += '</div>';
+
+  if(plan){
+    var testamentLabel = plan.testament==='OT' ? '구약' : (plan.testament==='NT' ? '신약' : '구약+신약 전체');
+    html += '<p class="savehint" style="margin-top:8px;">'+testamentLabel+' · '+plan.start_date+' ~ '+plan.end_date+'</p>';
+
+    var daysElapsed = Math.max(1, daysBetweenInclusive(plan.start_date, todayStr()));
+    var diff = daysElapsed - completedCount;
+    var paceRate = daysElapsed > 0 ? (completedCount / daysElapsed) : 0;
+    var remainingUnits = Math.max(0, totalDays - completedCount);
+    var expectedCompletionText;
+    if(completedCount >= totalDays){
+      expectedCompletionText = '완독 완료! 🎉';
+    }else if(paceRate <= 0){
+      expectedCompletionText = '계산 불가';
+    }else{
+      var addlDays = Math.ceil(remainingUnits / paceRate);
+      expectedCompletionText = addDays(todayStr(), addlDays);
+    }
+    var completedDatesSet = {};
+    progress.forEach(function(p){ if(p.completed) completedDatesSet[p.date] = true; });
+    var lastCompletedDate = null;
+    Object.keys(completedDatesSet).sort().forEach(function(d){ lastCompletedDate = d; });
+    var daysSinceLastRead = lastCompletedDate ? daysBetweenInclusive(lastCompletedDate, todayStr()) - 1 : daysElapsed - 1;
+
+    html += '<div class="reading-carousel" id="readingCarousel">';
+
+    html += '<div class="reading-panel"><div style="display:flex;gap:8px;">';
+    html += '<div class="stat-mini-card"><p class="stat-label">진행중</p><p class="stat-value">'+daysElapsed+'</p><p class="stat-sub">일차 / '+totalDays+'일</p></div>';
+    html += '<div class="stat-mini-card"><p class="stat-label">읽은 날</p><p class="stat-value" style="color:'+(diff>0?'var(--amber)':'var(--pine)')+';">'+completedCount+'</p><p class="stat-sub">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행')) +'</p></div>';
+    html += '<div class="stat-mini-card"><p class="stat-label">📅 예상완독일</p><p class="stat-value" style="font-size:0.9375rem;">'+expectedCompletionText+'</p></div>';
+    html += '</div></div>';
+
+    html += '<div class="reading-panel">';
+    html += '<div style="margin:8px 0 6px;position:relative;height:26px;">';
+    html += '<div class="progress-bar-bg" style="position:absolute;top:9px;left:0;right:0;"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>';
+    html += '<span style="position:absolute;top:0;left:calc('+pct+'% - 11px);font-size:1.25rem;transition:left 0.3s;">🚴</span>';
+    html += '</div>';
+    html += '<p class="savehint" style="text-align:center;"><b style="color:var(--amber);">나 '+completedCount+'일</b> / 오늘 '+daysElapsed+'일차</p>';
+    html += '<p class="savehint" style="text-align:center;">목표기간 : '+plan.start_date+' ~ '+plan.end_date+'</p>';
+    html += '</div>';
+
+    html += '<div class="reading-panel"><div style="display:flex;align-items:center;gap:12px;">';
+    if(daysSinceLastRead >= 1){
+      html += '<div><p style="font-weight:800;color:var(--brick);font-size:1rem;">안 읽은지 '+daysSinceLastRead+'일 지났습니다.</p>';
+      html += '<p class="savehint" style="margin-top:4px;">오늘부터 다시 시작하는 마음으로!!</p></div>';
+      html += '<span style="font-size:2.5rem;">😢</span>';
+    }else{
+      html += '<div><p style="font-weight:800;color:var(--pine);font-size:1rem;">오늘도 통독을 완료했어요!</p>';
+      html += '<p class="savehint" style="margin-top:4px;">꾸준함이 최고예요 👏</p></div>';
+      html += '<span style="font-size:2.5rem;">🎉</span>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="reading-panel">';
+    html += '<p class="field-label-strong" style="text-align:center;margin-bottom:12px;">최근 7일 통독 기록</p>';
+    html += '<div class="weekstrip-row">';
+    var dowNames = ['주일','월','화','수','목','금','토'];
+    for(var wi=6; wi>=0; wi--){
+      var wd = addDays(todayStr(), -wi);
+      var wdate = new Date(wd+'T00:00:00');
+      var isToday = wi === 0;
+      var wdone = !!completedDatesSet[wd];
+      html += '<div class="weekstrip-day">';
+      html += '<div class="weekstrip-circle'+(wdone?' done':'')+(isToday?' today-ring':'')+'">'+wdate.getDate()+'</div>';
+      html += '<span class="weekstrip-label'+(isToday?' today-label':'')+'">'+(isToday?'오늘':dowNames[wdate.getDay()])+'</span>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    html += '</div>';
+    html += '<div class="carousel-dots" id="readingCarouselDots">';
+    for(var di=0; di<4; di++){ html += '<span class="dot'+(di===0?' active':'')+'" data-dot="'+di+'"></span>'; }
+    html += '</div>';
+
+    html += '<p class="field-label-strong" style="margin-top:14px;">통독 현황표</p>';
+    var completedDates = {};
+    var progressRowsByDate = {};
+    progress.forEach(function(p){
+      progressRowsByDate[p.date] = p;
+      if(p.completed) completedDates[p.date] = true;
+    });
+
+    var monthGroups = {};
+    var monthOrder = [];
+    for(var i=0; i<totalDays; i++){
+      var d = addDays(plan.start_date, i);
+      var ym = d.slice(0,7);
+      if(!monthGroups[ym]){ monthGroups[ym] = []; monthOrder.push(ym); }
+      monthGroups[ym].push(d);
+    }
+    var todayYm = todayStr().slice(0,7);
+    if(monthGroups[todayYm] && expandedReadingMonths[todayYm] === undefined){ expandedReadingMonths[todayYm] = true; }
+
+    monthOrder.forEach(function(ym){
+      var days = monthGroups[ym];
+      var doneInMonth = days.filter(function(d){ return completedDates[d]; }).length;
+      var expanded = !!expandedReadingMonths[ym];
+      var yLabel = ym.slice(0,4)+'년 '+parseInt(ym.slice(5,7),10)+'월';
+      html += '<div class="card" style="margin-top:8px;padding:10px 12px;">';
+      html += '<div data-month-toggle="'+ym+'" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">';
+      html += '<span style="font-weight:700;">'+yLabel+'</span>';
+      html += '<span class="savehint">'+doneInMonth+'/'+days.length+'일 '+(expanded?'▲':'▼')+'</span>';
+      html += '</div>';
+      if(expanded){
+        html += '<div style="margin-top:8px;">';
+        days.forEach(function(d){
+          var done = !!completedDates[d];
+          var row = progressRowsByDate[d];
+          html += '<div class="member-row"><span>'+niceDate(d)+' · '+formatStoredRange(row, plan)+'</span>';
+          html += '<span style="'+(done?'color:var(--pine);font-weight:700;':'color:var(--ink-faint);')+'">'+(done?'✅':'—')+'</span></div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+  }else{
+    html += '<p class="empty-inline">아직 통독 설정을 안 하셨어요.</p>';
+  }
+  html += '</div></div>';
+
+  el.innerHTML = html;
+
+  document.getElementById('my_pinBtn').addEventListener('click', openChangePinSheet);
+  document.getElementById('my_readingSetBtn').addEventListener('click', function(){ openReadingSettingsSheet(plan); });
+  document.querySelectorAll('[data-month-toggle]').forEach(function(header){
+    header.addEventListener('click', function(){
+      var ym = header.getAttribute('data-month-toggle');
+      expandedReadingMonths[ym] = !expandedReadingMonths[ym];
+      renderMyTab();
+    });
+  });
+
+  var carouselEl = document.getElementById('readingCarousel');
+  if(carouselEl){
+    var dots = document.querySelectorAll('#readingCarouselDots .dot');
+    carouselEl.addEventListener('scroll', function(){
+      var idx = Math.round(carouselEl.scrollLeft / carouselEl.clientWidth);
+      dots.forEach(function(d, i){ d.classList.toggle('active', i === idx); });
+    });
+  }
+}
+
+function openChangePinSheet(){
+  var html = '';
+  html += '<div class="field"><span class="field-label">새 PIN 번호(4자리)</span><input type="password" id="pin_new" inputmode="numeric" placeholder="4자리 숫자"></div>';
+  html += '<div class="field"><span class="field-label">새 PIN 확인</span><input type="password" id="pin_confirm" inputmode="numeric" placeholder="다시 입력"></div>';
+  html += '<p class="savehint" id="pin_error" style="color:var(--brick);min-height:18px;"></p>';
+  html += '<button class="btn btn-primary btn-block" id="pin_saveBtn" type="button">변경하기</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '🔒 PIN 번호 변경';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('pin_saveBtn').addEventListener('click', async function(){
+    var p1 = document.getElementById('pin_new').value.trim();
+    var p2 = document.getElementById('pin_confirm').value.trim();
+    var errEl = document.getElementById('pin_error');
+    if(!p1 || p1.length < 4){ errEl.textContent = 'PIN은 4자리 이상으로 입력해주세요.'; return; }
+    if(p1 !== p2){ errEl.textContent = '두 PIN이 서로 달라요.'; return; }
+
+    var res = await supabaseClient.from('sg_members').update({ pin: p1 }).eq('id', currentMember.id);
+    if(res.error){ errEl.textContent = '변경 실패: '+res.error.message; return; }
+    currentMember.pin = p1;
+    closeSheet('genericSheet');
+    showToast('PIN이 변경됐어요.');
+  });
+}
+
+function openReadingSettingsSheet(existingPlan){
+  var e = existingPlan || {};
+  var html = '';
+  html += '<div class="field"><span class="field-label">통독 범위</span><div class="chiprow">';
+  html += '<button type="button" class="chip'+((e.testament||'OT')==='OT'?' selected':'')+'" data-testament="OT">구약 (39권 929장)</button>';
+  html += '<button type="button" class="chip'+(e.testament==='NT'?' selected':'')+'" data-testament="NT">신약 (27권 260장)</button>';
+  html += '<button type="button" class="chip'+(e.testament==='BOTH'?' selected':'')+'" data-testament="BOTH">전체 구약+신약 (66권 1189장)</button>';
+  html += '</div></div>';
+  html += '<div class="field"><span class="field-label">시작일</span><input type="date" id="rp_start" value="'+(e.start_date||todayStr())+'"></div>';
+  html += '<div class="field"><span class="field-label">종료일</span><input type="date" id="rp_end" value="'+(e.end_date||'')+'"></div>';
+  html += '<p class="savehint">시작일부터 종료일까지 매일 읽을 분량이 자동으로 균등 배분돼요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="rp_saveBtn" type="button" style="margin-top:10px;">저장</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '📖 성경통독 설정';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  var selectedTestament = e.testament || 'OT';
+  document.querySelectorAll('#genericSheetBody [data-testament]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      selectedTestament = chip.getAttribute('data-testament');
+      document.querySelectorAll('#genericSheetBody [data-testament]').forEach(function(c){ c.classList.remove('selected'); });
+      chip.classList.add('selected');
+    });
+  });
+
+  document.getElementById('rp_saveBtn').addEventListener('click', async function(){
+    var start = document.getElementById('rp_start').value;
+    var end = document.getElementById('rp_end').value;
+    if(!start || !end || end < start){ showToast('올바른 시작일/종료일을 선택해주세요.'); return; }
+
+    var planId = uid();
+    var payload = { id: planId, member_id: currentMember.id, testament: selectedTestament, start_date: start, end_date: end };
+    var res = await supabaseClient.from('sg_reading_plans').insert(payload);
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+
+    var totalDaysNew = daysBetweenInclusive(start, end);
+    var progressRows = [];
+    for(var i=0; i<totalDaysNew; i++){
+      var d = addDays(start, i);
+      var range = computeReadingPlanDayRange(payload, d);
+      var chapters = range ? range.chapters : [];
+      var first = chapters[0], last = chapters[chapters.length-1];
+      progressRows.push({
+        id: uid(), plan_id: planId, date: d, completed: false,
+        range_start_book: first ? first.book : null, range_start_chapter: first ? first.chapter : null,
+        range_end_book: last ? last.book : null, range_end_chapter: last ? last.chapter : null
+      });
+    }
+    if(progressRows.length > 0){
+      var progRes = await supabaseClient.from('sg_reading_progress').insert(progressRows);
+      if(progRes.error){ showToast('통독 일정 생성 실패: '+progRes.error.message); return; }
+    }
+
+    closeSheet('genericSheet');
+    showToast('통독 설정이 저장됐어요.');
+    renderMyTab();
+  });
+}
+
+// --- 오늘의 통독 팝업 (설정별 읽기 방식 분기 적용) ---
+async function openDailyReadingForDate(dateIso){
+  var plan = await loadReadingPlan(currentMember.id);
+  var html = '';
+  if(!plan){
+    html += '<p class="empty-inline">먼저 마이메뉴에서 성경통독 설정을 해주세요.</p>';
+    document.getElementById('dailyReadingSheetBody').innerHTML = html;
+    openSheet('dailyReadingSheet');
+    return;
+  }
+  var progress = await loadReadingProgress(plan.id);
+  var existingRow = progress.find(function(p){ return p.date === dateIso; });
+  var done = existingRow && existingRow.completed;
+
+  var chapters;
+  if(existingRow && existingRow.range_start_book){
+    chapters = [
+      { book: existingRow.range_start_book, chapter: Number(existingRow.range_start_chapter) },
+      { book: existingRow.range_end_book, chapter: Number(existingRow.range_end_chapter) }
+    ];
+  }else{
+    var liveRange = computeReadingPlanDayRange(plan, dateIso);
+    if(!liveRange){
+      html += '<p class="empty-inline">'+niceDate(dateIso)+'은(는) 통독 기간(' +plan.start_date+' ~ '+plan.end_date+') 밖이에요.</p>';
+      document.getElementById('dailyReadingSheetBody').innerHTML = html;
+      openSheet('dailyReadingSheet');
+      return;
+    }
+    chapters = liveRange.chapters;
+  }
+
+  html += '<p class="field-label-strong">'+niceDate(dateIso)+'</p>';
+  html += '<div class="card" style="text-align:center;margin-top:10px;">';
+  html += '<p style="font-size:1.25rem;font-weight:700;font-family:var(--font-heading);">'+formatChapterRange(chapters)+'</p>';
+  html += '</div>';
+
+  var startChapter = chapters[0];
+  if(startChapter){
+    var groupRes2 = await supabaseClient.from('sg_groups').select('bible_reading_mode, custom_bible_name, custom_bible_url').eq('id', currentMember.group_id).limit(1);
+    var groupInfo2 = (groupRes2.data && groupRes2.data[0]) || {};
+    var readingMode = groupInfo2.bible_reading_mode || 'bskorea';
+
+    if(readingMode === 'custom' && groupInfo2.custom_bible_url){
+      html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;">📖 '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
+      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">등록해둔 주소로 연결돼요. 오늘 읽을 범위('+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장~)를 직접 찾아 읽으세요.</p>';
+    }else if(readingMode === 'bskorea'){
+      var bskUrl = bskoreaReadUrl(startChapter.book, startChapter.chapter);
+      var targetUrl = bskUrl || 'https://www.bskorea.or.kr/bible/korbibReadpage.php';
+      html += '<a href="'+escapeHtml(targetUrl)+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;">📖 대한성서공회에서 말씀 읽기</a>';
+      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">대한성서공회 웹페이지로 이동하여 말씀을 읽습니다.</p>';
+    }else{
+      // youversion (앱 내 성경 뷰어 연결)
+      html += '<button class="btn btn-primary btn-block" id="dr_openReaderBtn" type="button" style="margin-bottom:8px;">📖 성경읽기 (유버전)</button>';
+      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">버튼을 누르면 앱 내에서 성경 본문을 읽을 수 있어요.</p>';
+    }
+  }
+
+  if(done){
+    html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);"><p style="font-weight:700;color:var(--pine);">✅ 읽기 완료!</p></div>';
+  }else{
+    html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:8px;">읽기 완료</button>';
+  }
+
+  document.getElementById('dailyReadingSheetBody').innerHTML = html;
+  openSheet('dailyReadingSheet');
+
+  var readerBtn = document.getElementById('dr_openReaderBtn');
+  if(readerBtn){
+    readerBtn.addEventListener('click', function(){
+      openBibleReader(dateIso, plan, chapters, done);
+    });
+  }
+
+  if(!done){
+    var compBtn = document.getElementById('dr_completeBtn');
+    if(compBtn){
+      compBtn.addEventListener('click', async function(){
+        var first = chapters[0], last = chapters[chapters.length-1];
+        var rangeFields = {
+          range_start_book: first.book, range_start_chapter: first.chapter,
+          range_end_book: last.book, range_end_chapter: last.chapter
+        };
+        var payload = existingRow
+          ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
+          : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
+        var res = existingRow
+          ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRow.id)
+          : await supabaseClient.from('sg_reading_progress').insert(payload);
+        if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+        showToast('오늘의 통독을 완료했어요! 🎉');
+        openDailyReadingForDate(dateIso);
+      });
+    }
+  }
+}
+
+// ---------- 설정 탭 ----------
+async function renderSettingsTab(){
+  var el = document.getElementById('tabContent');
+  var currentGroupRes = await supabaseClient.from('sg_groups').select('*').eq('id', currentMember.group_id).limit(1);
+  var currentGroup = (currentGroupRes.data && currentGroupRes.data[0]) || { bible_reading_mode: 'bskorea' };
+  currentGroupInfo = currentGroup;
+  await loadSystemSettings();
+
+  var html = '<div class="screen">';
+  if(isAdminRole(currentMember.role)){
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<h2 style="font-size:1rem;">⚙️ 공지 관리</h2>';
+    html += '<button class="btn" id="set_addAnnounceBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 공지 등록</button>';
+    html += '</div>';
+
+    html += '<div class="card" style="margin-bottom:14px;">';
+    if(announcements.length === 0){
+      html += '<p class="empty-inline">등록된 공지가 없어요.</p>';
+    }else{
+      announcements.forEach(function(a){
+        html += '<div class="member-row"><span>'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+(a.expires_at?'<br><span class="savehint">'+a.expires_at+'까지</span>':'')+'</span>';
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button class="chip" data-announce-edit="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
+        html += '<button class="chip" data-announce-del="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
+  }
+
+  if(hasPermission('activity_types')){
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<h2 style="font-size:1rem;">🏷️ 소모임 활동 항목</h2>';
+    html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
+    html += '</div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    if(activityTypes.length === 0){
+      html += '<p class="empty-inline">등록된 항목이 없어요. (예: 정기모임, 기도요청, 심방 등)</p>';
+    }else{
+      activityTypes.forEach(function(t){
+        html += '<div class="member-row"><span>'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</span>';
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button class="chip" data-type-edit="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
+        html += '<button class="chip" data-type-del="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
+  }
+
+  if(hasPermission('appearance')){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎨 화면 상단 꾸미기</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<div class="field"><span class="field-label">로고 타이틀명</span><input type="text" id="set_logoTitle" placeholder="소그룹커뮤" value="'+escapeHtml(currentGroup.logo_title||'')+'"></div>';
+    html += '<div class="row2"><div style="flex:1;"><span class="field-label">로고 색상</span><input type="color" id="set_logoColor" value="'+(currentGroup.logo_color||'#20241D')+'" style="width:100%;height:38px;padding:2px;border-radius:8px;border:1px solid var(--line);"></div>';
+    html += '<div style="flex:2;"><span class="field-label">로고 위치</span><div class="chiprow">';
+    [['left','좌'],['center','중'],['right','우']].forEach(function(p){
+      html += '<button type="button" class="chip'+((currentGroup.logo_position||'left')===p[0]?' selected':'')+'" data-logo-pos="'+p[0]+'">'+p[1]+'</button>';
+    });
+    html += '</div></div></div>';
+    html += '<p class="field-label" style="margin-top:12px;">상단 타이틀 바 배경</p>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
+    html += '<input type="radio" name="header_bg_mode" value="default"'+(currentGroup.header_bg_mode!=='custom'?' checked':'')+'> <span>기본</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
+    html += '<input type="radio" name="header_bg_mode" value="custom"'+(currentGroup.header_bg_mode==='custom'?' checked':'')+'> <span>배경설정</span>';
+    html += '<span class="savehint">(권장 1200×300px, 가로로 긴 이미지)</span>';
+    html += '</label>';
+    html += '<div id="set_headerBgUploadWrap" style="display:'+(currentGroup.header_bg_mode==='custom'?'block':'none')+';margin-top:8px;">';
+    html += '<input type="file" accept="image/*" id="set_headerBgInput" style="display:none;">';
+    html += '<div id="set_headerBgPreview">'+imagePreviewHTML('set_headerBg', currentGroup.header_bg_image)+'</div>';
+    html += '</div>';
+    html += '<button class="btn btn-primary btn-block" id="set_appearanceSaveBtn" type="button" style="margin-top:12px;">저장</button>';
+    html += '</div>';
+
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🌈 테마 설정</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<div class="chiprow">';
+    [['default','기본(그린)'],['blue','블루'],['rose','로즈'],['dark','다크']].forEach(function(t){
+      html += '<button type="button" class="chip'+((currentGroup.theme||'default')===t[0]?' selected':'')+'" data-theme-pick="'+t[0]+'">'+t[1]+'</button>';
+    });
+    html += '</div></div>';
+
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🔤 폰트 · 글자크기</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<p class="field-label" style="margin-bottom:6px;">폰트</p>';
+    html += '<div class="chiprow" style="margin-bottom:14px;">';
+    [['default','기본'],['gothic','고딕'],['serif','명조']].forEach(function(f){
+      html += '<button type="button" class="chip'+((currentGroup.font_family||'default')===f[0]?' selected':'')+'" data-font-pick="'+f[0]+'">'+f[1]+'</button>';
+    });
+    html += '</div>';
+    html += '<p class="field-label" style="margin-bottom:6px;">글자 크기</p>';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<span style="font-size:0.75rem;">가</span>';
+    html += '<input type="range" id="set_fontSizeSlider" min="0.85" max="1.3" step="0.05" value="'+(currentGroup.font_size_scale||1)+'" style="flex:1;">';
+    html += '<span style="font-size:1.3rem;">가</span>';
+    html += '</div>';
+    html += '<p class="savehint" style="text-align:center;margin-top:6px;" id="set_fontSizeLabel">'+Math.round((currentGroup.font_size_scale||1)*100)+'%</p>';
+    html += '</div>';
+  }
+
+  if(hasPermission('bible_settings')){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">📖 성경보기 설정</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (앱 내 뷰어로 구절 보기)</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="bskorea"'+((!currentGroup.bible_reading_mode || currentGroup.bible_reading_mode==='bskorea')?' checked':'')+'> <span>대한성서공회에서 말씀읽기</span>';
+    html += '</label>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
+    html += '<input type="radio" name="bible_mode" value="custom"'+(currentGroup.bible_reading_mode==='custom'?' checked':'')+'> <span>사용자 보기</span>';
+    html += '</label>';
+    html += '<div id="set_customBibleWrap" style="display:'+(currentGroup.bible_reading_mode==='custom'?'block':'none')+';margin-top:8px;padding-left:4px;">';
+    html += '<div class="field"><span class="field-label">버튼에 표시할 명칭</span><input type="text" id="set_customBibleName" placeholder="예: 우리교회 성경읽기" value="'+escapeHtml(currentGroup.custom_bible_name||'')+'"></div>';
+    html += '<div class="field"><span class="field-label">연결할 주소(URL)</span><input type="text" id="set_customBibleUrl" placeholder="https://..." value="'+escapeHtml(currentGroup.custom_bible_url||'')+'"></div>';
+    html += '<p class="savehint">이 주소로 바로 연결돼요. 장(chapter) 단위 자동 이동은 지원하지 않아요.</p>';
+    html += '<button class="btn btn-primary btn-block" id="set_customBibleSaveBtn" type="button" style="margin-top:8px;">저장</button>';
+    html += '</div>';
+    html += '</div>';
+  }
+
+  if(hasPermission('worship_video')){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🎬 주일예배 영상 관리</h2></div>';
+    html += '<div class="card" style="margin-bottom:14px;">';
+    var wTitle = currentGroup.worship_video_title || '';
+    var wUrl = currentGroup.worship_video_url || '';
+    html += wUrl ? '<p class="savehint" style="margin-bottom:8px;">현재 등록: '+escapeHtml(wTitle||'(제목 없음)')+'</p>' : '<p class="empty-inline">등록된 영상이 없어요.</p>';
+    html += '<button class="btn btn-block" id="set_editWorshipBtn" type="button">영상 등록/수정</button>';
+    html += '</div>';
+  }
+
+  if(hasPermission('group_management')){
+    groups = await loadGroups();
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<h2 style="font-size:1rem;">🌱 소그룹 관리</h2>';
+    if(currentMember.role === 'super_admin'){
+      html += '<button class="btn" id="set_newGroupBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 새 소그룹</button>';
+    }
+    html += '</div>';
+    html += '<div class="card" style="margin-bottom:24px;">';
+    groups.forEach(function(g){
+      html += '<div class="member-row"><span>'+escapeHtml(g.name)+(g.id===currentMember.group_id?' <span class="savehint">(현재)</span>':'')+'</span>';
+      html += '<div style="display:flex;gap:6px;">';
+      html += '<button class="chip" data-group-edit="'+g.id+'" style="font-size:0.75rem;padding:6px 10px;">이름수정</button>';
+      html += '<button class="chip" data-group-del="'+g.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  if(currentMember.role === 'super_admin'){
+    html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🔐 권한 설정</h2></div>';
+    html += '<button class="btn btn-block" id="set_permissionBtn" type="button" style="margin-bottom:24px;">역할별 기능 접근 관리하기</button>';
+  }
+
+  el.innerHTML = html;
+
+  if(isAdminRole(currentMember.role)){
+    document.getElementById('set_addAnnounceBtn').addEventListener('click', function(){ openAnnouncementForm(null); });
+    el.querySelectorAll('[data-announce-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var a = announcements.find(function(x){ return x.id === btn.getAttribute('data-announce-edit'); });
+        openAnnouncementForm(a);
+      });
+    });
+    el.querySelectorAll('[data-announce-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await supabaseClient.from('sg_announcements').delete().eq('id', btn.getAttribute('data-announce-del'));
+        await loadGroupData(currentMember.group_id);
+        renderSettingsTab();
+        showToast('삭제했어요.');
+      });
+    });
+  }
+
+  if(hasPermission('activity_types')){
+    document.getElementById('set_addTypeBtn').addEventListener('click', function(){ openActivityTypeForm(null); });
+    el.querySelectorAll('[data-type-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var t = activityTypes.find(function(x){ return x.id === btn.getAttribute('data-type-edit'); });
+        openActivityTypeForm(t);
+      });
+    });
+    el.querySelectorAll('[data-type-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        await supabaseClient.from('sg_activity_types').delete().eq('id', btn.getAttribute('data-type-del'));
+        await loadGroupData(currentMember.group_id);
+        renderSettingsTab();
+        showToast('삭제했어요.');
+      });
+    });
+  }
+
+  if(hasPermission('bible_settings')){
+    el.querySelectorAll('input[name="bible_mode"]').forEach(function(radio){
+      radio.addEventListener('change', function(){
+        document.getElementById('set_customBibleWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
+        if(radio.value !== 'custom'){
+          supabaseClient.from('sg_groups').update({ bible_reading_mode: radio.value }).eq('id', currentMember.group_id).then(function(){
+            showToast('성경보기 설정을 저장했어요.');
+          });
+        }
+      });
+    });
+    document.getElementById('set_customBibleSaveBtn').addEventListener('click', async function(){
+      var name = document.getElementById('set_customBibleName').value.trim();
+      var url = document.getElementById('set_customBibleUrl').value.trim();
+      if(!name || !url){ showToast('명칭과 주소를 모두 입력해주세요.'); return; }
+      var res = await supabaseClient.from('sg_groups').update({
+        bible_reading_mode: 'custom', custom_bible_name: name, custom_bible_url: url
+      }).eq('id', currentMember.group_id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      showToast('사용자 보기 설정을 저장했어요.');
+    });
+  }
+
+  if(hasPermission('worship_video')){
+    document.getElementById('set_editWorshipBtn').addEventListener('click', function(){
+      openWorshipVideoForm(function(){ renderSettingsTab(); });
+    });
+  }
+
+  if(hasPermission('appearance')){
+    var currentHeaderBg = currentGroup.header_bg_image || null;
+    wireImageFieldGlobal('set_headerBg', function(){ return currentHeaderBg; }, function(v){ currentHeaderBg = v; }, 'set_headerBgInput', { maxWidth: 640, quality: 0.5 });
+    el.querySelectorAll('input[name="header_bg_mode"]').forEach(function(radio){
+      radio.addEventListener('change', function(){
+        document.getElementById('set_headerBgUploadWrap').style.display = radio.value === 'custom' ? 'block' : 'none';
+      });
+    });
+    var selectedLogoPos = currentGroup.logo_position || 'left';
+    el.querySelectorAll('[data-logo-pos]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedLogoPos = chip.getAttribute('data-logo-pos');
+        el.querySelectorAll('[data-logo-pos]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+      });
+    });
+    var selectedTheme = currentGroup.theme || 'default';
+    el.querySelectorAll('[data-theme-pick]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedTheme = chip.getAttribute('data-theme-pick');
+        el.querySelectorAll('[data-theme-pick]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+        applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+      });
+    });
+    var selectedFont = currentGroup.font_family || 'default';
+    el.querySelectorAll('[data-font-pick]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        selectedFont = chip.getAttribute('data-font-pick');
+        el.querySelectorAll('[data-font-pick]').forEach(function(c){ c.classList.remove('selected'); });
+        chip.classList.add('selected');
+        applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+      });
+    });
+    document.getElementById('set_fontSizeSlider').addEventListener('input', function(){
+      document.documentElement.style.setProperty('--font-scale', this.value);
+      document.getElementById('set_fontSizeLabel').textContent = Math.round(this.value*100)+'%';
+    });
+
+    document.getElementById('set_appearanceSaveBtn').addEventListener('click', async function(){
+      var logoTitle = document.getElementById('set_logoTitle').value.trim();
+      var logoColor = document.getElementById('set_logoColor').value;
+      var bgMode = document.querySelector('input[name="header_bg_mode"]:checked').value;
+      var fontScale = parseFloat(document.getElementById('set_fontSizeSlider').value);
+      var updatePayload = {
+        logo_title: logoTitle || null,
+        logo_color: logoColor || null,
+        logo_position: selectedLogoPos,
+        header_bg_mode: bgMode,
+        header_bg_image: bgMode === 'custom' ? currentHeaderBg : null,
+        theme: selectedTheme,
+        font_family: selectedFont,
+        font_size_scale: fontScale
+      };
+      var res = await supabaseClient.from('sg_groups').update(updatePayload).eq('id', currentMember.group_id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      currentGroupInfo = Object.assign({}, currentGroupInfo, updatePayload);
+      renderMainApp();
+      showToast('화면 꾸미기 설정을 저장했어요.');
+    });
+  }
+
+  if(hasPermission('group_management')){
+    if(currentMember.role === 'super_admin'){
+      document.getElementById('set_newGroupBtn').addEventListener('click', openNewGroupSheet);
+    }
+    el.querySelectorAll('[data-group-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){ openGroupEditSheet(btn.getAttribute('data-group-edit')); });
+    });
+    el.querySelectorAll('[data-group-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var gid = btn.getAttribute('data-group-del');
+        if(gid === currentMember.group_id){ showToast('현재 로그인한 소그룹은 삭제할 수 없어요.'); return; }
+        if(!confirm('이 소그룹과 소속된 모든 멤버·활동 기록이 삭제돼요. 계속할까요?')) return;
+        await supabaseClient.from('sg_groups').delete().eq('id', gid);
+        renderSettingsTab();
+        showToast('소그룹을 삭제했어요.');
+      });
+    });
+  }
+
+  if(currentMember.role === 'super_admin'){
+    document.getElementById('set_permissionBtn').addEventListener('click', openPermissionSettingsScreen);
+  }
+
+  var anySettingVisible = isAdminRole(currentMember.role) || hasPermission('activity_types') || hasPermission('appearance') || hasPermission('bible_settings') || hasPermission('group_management');
+  if(!anySettingVisible){
+    el.innerHTML = '<div class="screen"><p class="empty-inline" style="padding-top:40px;text-align:center;">현재 열람 가능한 설정 항목이 없어요.<br>최고관리자에게 문의해주세요.</p></div>';
+  }
+}
+
+function openPermissionSettingsScreen(){
+  var perms = getPermissionSettings();
+  var sectionLabels = [
+    ['activity_types','🏷️ 소모임 활동 항목'],
+    ['appearance','🎨 화면 상단 꾸미기 (테마·폰트 포함)'],
+    ['bible_settings','📖 성경보기 설정'],
+    ['group_management','🌱 소그룹 관리'],
+    ['worship_video','🎬 주일예배 영상 관리']
+  ];
+
+  var html = '';
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">👑 최고관리자</p>';
+  html += '<p class="savehint" style="margin-bottom:16px;">모든 기능이 항상 활성화돼요. (조정 불가)</p>';
+
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">🛡️ 관리자</p>';
+  html += '<div class="card" style="margin-bottom:16px;">';
+  sectionLabels.forEach(function(s){
+    html += '<div class="switch-row"><span>'+s[1]+'</span>';
+    html += '<label class="switch-toggle"><input type="checkbox" data-perm-role="admin" data-perm-key="'+s[0]+'"'+(perms.admin[s[0]]?' checked':'')+'><span class="slider"></span></label>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<p class="field-label-strong" style="margin-bottom:6px;">🙋 일반 멤버</p>';
+  html += '<div class="card" style="margin-bottom:12px;">';
+  sectionLabels.forEach(function(s){
+    html += '<div class="switch-row"><span>'+s[1]+'</span>';
+    html += '<label class="switch-toggle"><input type="checkbox" data-perm-role="member" data-perm-key="'+s[0]+'"'+(perms.member[s[0]]?' checked':'')+'><span class="slider"></span></label>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div class="card" style="margin-bottom:14px;">';
+  html += '<p class="savehint">아래 두 가지는 일반 멤버에게 항상 적용되는 고정 정책이에요 (조정 불가).</p>';
+  html += '<p class="savehint" style="margin-top:8px;">• 소모임활동 수정: 본인이 등록한 활동만 수정 가능하고, 다른 멤버가 등록한 활동은 보기만 할 수 있어요.</p>';
+  html += '<p class="savehint" style="margin-top:6px;">• 기도응답현황: 전체 목록은 읽기만 가능하고, 본인이 등록한 기도요청에 한해 기도응답 체크·메모를 남길 수 있어요.</p>';
+  html += '</div>';
+
+  document.getElementById('genericSheetTitle').textContent = '🔐 권한 설정';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  Promise.all([loadAllMembersAcrossGroups(), loadGroups()]).then(function(results){
+    var allMembers = results[0];
+    var allGroups = results[1];
+    var membersByGroup = {};
+    allMembers.forEach(function(m){
+      if(!membersByGroup[m.group_id]) membersByGroup[m.group_id] = [];
+      membersByGroup[m.group_id].push(m);
+    });
+
+    var section = document.createElement('div');
+    var listHtml = '<p class="field-label-strong" style="margin:16px 0 6px;">👥 전체 멤버 관리 (소그룹 무관)</p>';
+    listHtml += '<p class="savehint" style="margin-bottom:10px;">모든 소그룹의 멤버를 보고 관리자/일반 권한을 바꿀 수 있어요.</p>';
+
+    allGroups.forEach(function(g){
+      var groupMembers = membersByGroup[g.id] || [];
+      var expanded = !!expandedPermGroups[g.id];
+      listHtml += '<div class="card" style="margin-bottom:8px;padding:10px 12px;">';
+      listHtml += '<div data-permgroup-toggle="'+g.id+'" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">';
+      listHtml += '<span style="font-weight:700;">'+escapeHtml(g.name)+'</span>';
+      listHtml += '<span class="savehint">'+groupMembers.length+'명 '+(expanded?'▲':'▼')+'</span>';
+      listHtml += '</div>';
+      if(expanded){
+        listHtml += '<div style="margin-top:8px;">';
+        if(groupMembers.length === 0){
+          listHtml += '<p class="empty-inline">멤버가 없어요.</p>';
+        }else{
+          groupMembers.forEach(function(m){
+            listHtml += '<div class="member-row"><span>'+escapeHtml(m.name)+roleBadgeHTML(m.role)+'</span>';
+            listHtml += '<div style="display:flex;gap:6px;">';
+            listHtml += '<button type="button" class="chip'+(m.role!=='admin'?' selected':'')+'" data-setrole="member" data-member-id="'+m.id+'" style="font-size:0.75rem;padding:6px 10px;">일반</button>';
+            listHtml += '<button type="button" class="chip'+(m.role==='admin'?' selected':'')+'" data-setrole="admin" data-member-id="'+m.id+'" style="font-size:0.75rem;padding:6px 10px;">관리자</button>';
+            listHtml += '</div></div>';
+          });
+        }
+        listHtml += '</div>';
+      }
+      listHtml += '</div>';
+    });
+
+    section.innerHTML = listHtml;
+    document.getElementById('genericSheetBody').appendChild(section);
+
+    section.querySelectorAll('[data-permgroup-toggle]').forEach(function(header){
+      header.addEventListener('click', function(){
+        var gid = header.getAttribute('data-permgroup-toggle');
+        expandedPermGroups[gid] = !expandedPermGroups[gid];
+        openPermissionSettingsScreen();
+      });
+    });
+    section.querySelectorAll('[data-setrole]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var mid = btn.getAttribute('data-member-id');
+        var newRole = btn.getAttribute('data-setrole');
+        var res = await supabaseClient.from('sg_members').update({ role: newRole }).eq('id', mid);
+        if(res.error){ showToast('변경 실패: '+res.error.message); return; }
+        showToast(newRole === 'admin' ? '관리자로 변경했어요.' : '일반 멤버로 변경했어요.');
+        if(mid === currentMember.id){ currentMember.role = newRole; }
+        if(members.some(function(mm){ return mm.id === mid; })){ await loadGroupData(currentMember.group_id); }
+        openPermissionSettingsScreen();
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-perm-role]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      var role = cb.getAttribute('data-perm-role');
+      var key = cb.getAttribute('data-perm-key');
+      var updated = getPermissionSettings();
+      updated[role][key] = cb.checked;
+      var res = await supabaseClient.from('sg_system_settings').upsert({ id: 'global', permission_settings: updated });
+      if(res.error){ showToast('저장 실패: '+res.error.message); cb.checked = !cb.checked; return; }
+      systemSettingsInfo = { id: 'global', permission_settings: updated };
+      showToast('권한 설정을 저장했어요.');
+    });
+  });
+}
+
+function openActivityTypeForm(existing){
+  var e = existing || {};
+  var html = '';
+  html += '<div class="field"><span class="field-label">항목 이름</span><input type="text" id="type_name" placeholder="예: 기도요청" value="'+escapeHtml(e.name||'')+'"></div>';
+  html += '<p class="savehint">"기도요청"이라는 이름으로 등록하면, 그 활동이 있는 날 캘린더에 ✝️ 표시가 떠요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="type_saveBtn" type="button" style="margin-top:10px;">'+(existing?'수정 완료':'등록')+'</button>';
+
+  document.getElementById('genericSheetTitle').textContent = existing ? '✏️ 활동 항목 수정' : '🏷️ 활동 항목 추가';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('type_saveBtn').addEventListener('click', async function(){
+    var name = document.getElementById('type_name').value.trim();
+    if(!name){ showToast('항목 이름을 입력해주세요.'); return; }
+    var res = existing
+      ? await supabaseClient.from('sg_activity_types').update({ name: name }).eq('id', existing.id)
+      : await supabaseClient.from('sg_activity_types').insert({ id: uid(), group_id: currentMember.group_id, name: name });
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    closeSheet('genericSheet');
+    await loadGroupData(currentMember.group_id);
+    renderSettingsTab();
+    showToast(existing ? '수정했어요.' : '항목을 등록했어요.');
+  });
+}
+
+function openGroupEditSheet(groupId){
+  var group = groups.find(function(g){ return g.id === groupId; });
+  var html = '';
+  html += '<div class="field"><span class="field-label">소그룹 이름</span><input type="text" id="grp_name" value="'+escapeHtml(group?group.name:'')+'"></div>';
+  html += '<button class="btn btn-primary btn-block" id="grp_saveBtn" type="button">수정 완료</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '✏️ 소그룹 이름 수정';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('grp_saveBtn').addEventListener('click', async function(){
+    var name = document.getElementById('grp_name').value.trim();
+    if(!name){ showToast('이름을 입력해주세요.'); return; }
+    var res = await supabaseClient.from('sg_groups').update({ name: name }).eq('id', groupId);
+    if(res.error){ showToast('수정 실패: '+res.error.message); return; }
+    closeSheet('genericSheet');
+    renderSettingsTab();
+    showToast('수정했어요.');
+  });
+}
+
+function openAnnouncementForm(existing){
+  var e = existing || {};
+  var html = '';
+  html += '<div class="field"><span class="field-label">공지 내용</span><textarea id="ann_content" rows="3" placeholder="예: 이번 주 소모임은 오후 7시입니다.">'+escapeHtml(e.content||'')+'</textarea></div>';
+  html += '<div class="field"><span class="field-label">만료일(선택)</span><input type="date" id="ann_expires" value="'+(e.expires_at||'')+'"></div>';
+  html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
+  html += '<input type="checkbox" id="ann_pinned"'+(e.pinned?' checked':'')+'> <span class="savehint">📌 최상단 고정</span>';
+  html += '</label>';
+  html += '<p class="savehint">만료일을 지나면 공지가 자동으로 사라져요. 비워두면 직접 삭제할 때까지 계속 보여요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="ann_saveBtn" type="button" style="margin-top:10px;">'+(existing?'수정 완료':'등록')+'</button>';
+
+  document.getElementById('genericSheetTitle').textContent = existing ? '✏️ 공지 수정' : '📢 공지 등록';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('ann_saveBtn').addEventListener('click', async function(){
+    var content = document.getElementById('ann_content').value.trim();
+    var expires = document.getElementById('ann_expires').value || null;
+    var pinned = document.getElementById('ann_pinned').checked;
+    if(!content){ showToast('내용을 입력해주세요.'); return; }
+    var res = existing
+      ? await supabaseClient.from('sg_announcements').update({ content: content, expires_at: expires, pinned: pinned }).eq('id', existing.id)
+      : await supabaseClient.from('sg_announcements').insert({
+          id: uid(), group_id: currentMember.group_id, content: content, created_by: currentMember.id, expires_at: expires, pinned: pinned
+        });
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    closeSheet('genericSheet');
+    await loadGroupData(currentMember.group_id);
+    renderSettingsTab();
+    showToast(existing ? '수정했어요.' : '공지를 등록했어요.');
+  });
+}
+
+// ---------- 캘린더 탭 ----------
+function openPrayerAnswerScreen(){
+  var prayerActivities = activities.filter(function(a){ return a.activity_type === '기도요청'; })
+    .slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); });
+
+  var html = '';
+  if(prayerActivities.length === 0){
+    html += '<p class="empty-inline">등록된 기도요청이 없어요.</p>';
+  }else{
+    var answeredCount = prayerActivities.filter(function(a){ return a.prayer_answered; }).length;
+    html += '<p class="savehint" style="margin-bottom:12px;">전체 '+prayerActivities.length+'건 중 <b style="color:var(--pine);">'+answeredCount+'건 응답됨</b></p>';
+    prayerActivities.forEach(function(a){
+      var presentNames = attendance.filter(function(at){ return at.activity_id === a.id && at.present; })
+        .map(function(at){ var m = members.find(function(mm){ return mm.id === at.member_id; }); return m ? m.name : null; })
+        .filter(Boolean);
+      var canEdit = isAdminRole(currentMember.role) || a.created_by === currentMember.id;
+      html += '<div class="card" data-prayer-id="'+a.id+'" style="'+(a.prayer_answered?'background:var(--pine-soft);border-color:var(--pine);':'')+'">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+      html += '<div><p style="font-weight:700;">✝️ '+escapeHtml(a.title)+'</p><p class="savehint">'+niceDate(a.date)+'</p></div>';
+      html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">';
+      html += '<input type="checkbox" class="prayer-answered-check" data-prayer-check="'+a.id+'"'+(a.prayer_answered?' checked':'')+(canEdit?'':' disabled')+'> <span class="savehint">기도응답</span>';
+      html += '</label></div>';
+      if(a.memo) html += '<p class="savehint" style="margin-top:6px;">'+escapeHtml(a.memo)+'</p>';
+      if(presentNames.length > 0) html += '<p class="savehint" style="margin-top:6px;">참여: '+presentNames.map(escapeHtml).join(', ')+'</p>';
+      html += '<textarea class="prayer-progress-note" data-prayer-note="'+a.id+'" rows="2" placeholder="진행 현황 / 응답 간증 메모" style="margin-top:8px;"'+(canEdit?'':' disabled')+'>'+escapeHtml(a.prayer_progress_note||'')+'</textarea>';
+      if(canEdit){
+        html += '<button type="button" class="chip" data-prayer-savenote="'+a.id+'" style="margin-top:6px;font-size:0.75rem;padding:6px 10px;">메모 저장</button>';
+      }else{
+        html += '<p class="savehint" style="margin-top:6px;">다른 멤버가 등록한 기도요청이라 보기만 가능해요.</p>';
+      }
+      html += '</div>';
+    });
+  }
+
+  document.getElementById('genericSheetTitle').textContent = '🙏 기도응답 현황';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.querySelectorAll('[data-prayer-check]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      var id = cb.getAttribute('data-prayer-check');
+      var res = await supabaseClient.from('sg_activities').update({ prayer_answered: cb.checked }).eq('id', id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      var act = activities.find(function(x){ return x.id === id; });
+      if(act) act.prayer_answered = cb.checked;
+      showToast(cb.checked ? '기도응답으로 표시했어요.' : '표시를 해제했어요.');
+      openPrayerAnswerScreen();
+    });
+  });
+  document.querySelectorAll('[data-prayer-savenote]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-prayer-savenote');
+      var note = document.querySelector('[data-prayer-note="'+id+'"]').value.trim();
+      var res = await supabaseClient.from('sg_activities').update({ prayer_progress_note: note || null }).eq('id', id);
+      if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+      var act = activities.find(function(x){ return x.id === id; });
+      if(act) act.prayer_progress_note = note || null;
+      showToast('메모를 저장했어요.');
+    });
+  });
+}
+
+function openWorshipVideoForm(onSaved){
+  var title = (currentGroupInfo && currentGroupInfo.worship_video_title) || '';
+  var url = (currentGroupInfo && currentGroupInfo.worship_video_url) || '';
+  var html = '';
+  html += '<div class="field"><span class="field-label">제목(선택)</span><input type="text" id="worship_title" placeholder="예: 9월 3주 주일예배" value="'+escapeHtml(title)+'"></div>';
+  html += '<div class="field"><span class="field-label">영상 링크(유튜브 등)</span><input type="text" id="worship_url" placeholder="https://www.youtube.com/watch?v=..." value="'+escapeHtml(url)+'"></div>';
+  html += '<p class="savehint">매주 이 링크만 바꿔주시면 캘린더 화면에 자동으로 반영돼요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="worship_saveBtn" type="button" style="margin-top:10px;">저장</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '🎬 주일예배 영상 등록';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('worship_saveBtn').addEventListener('click', async function(){
+    var newTitle = document.getElementById('worship_title').value.trim();
+    var newUrl = document.getElementById('worship_url').value.trim();
+    var res = await supabaseClient.from('sg_groups').update({
+      worship_video_title: newTitle || null, worship_video_url: newUrl || null
+    }).eq('id', currentMember.group_id);
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    currentGroupInfo = Object.assign({}, currentGroupInfo, { worship_video_title: newTitle||null, worship_video_url: newUrl||null });
+    closeSheet('genericSheet');
+    if(onSaved) onSaved(); else renderCalendarTab();
+    showToast('주일예배 영상을 저장했어요.');
+  });
+}
+
+function openMonthPickerSheet(){
+  var pickerYear = calYear;
+  function render(){
+    var html = '';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+    html += '<button class="btn" id="mp_yearPrev" type="button" style="padding:6px 10px;">‹</button>';
+    html += '<span style="font-weight:700;font-size:1rem;">'+pickerYear+'년</span>';
+    html += '<button class="btn" id="mp_yearNext" type="button" style="padding:6px 10px;">›</button>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+    for(var m=1; m<=12; m++){
+      var isCurrent = (pickerYear===calYear && m===calMonth);
+      html += '<button type="button" class="chip'+(isCurrent?' selected':'')+'" data-pick-month="'+m+'" style="padding:14px 0;justify-content:center;">'+m+'월</button>';
+    }
+    html += '</div>';
+    document.getElementById('genericSheetBody').innerHTML = html;
+    document.getElementById('mp_yearPrev').addEventListener('click', function(){ pickerYear--; render(); });
+    document.getElementById('mp_yearNext').addEventListener('click', function(){ pickerYear++; render(); });
+    document.querySelectorAll('[data-pick-month]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        calYear = pickerYear;
+        calMonth = parseInt(btn.getAttribute('data-pick-month'), 10);
+        closeSheet('genericSheet');
+        renderCalendarTab();
+      });
+    });
+  }
+  document.getElementById('genericSheetTitle').textContent = '📅 연/월 선택';
+  render();
+  openSheet('genericSheet');
+}
+
+async function renderCalendarTab(){
+  var el = document.getElementById('tabContent');
+
+  var completedReadingDates = {};
+  var plan = await loadReadingPlan(currentMember.id);
+  if(plan){
+    var progress = await loadReadingProgress(plan.id);
+    progress.forEach(function(p){ if(p.completed) completedReadingDates[p.date] = true; });
+  }
+
+  var html = '<div class="screen">';
+
+  var todayMD = todayStr().slice(5);
+  var birthdayMembers = members.filter(function(m){ return m.birthday && m.birthday.slice(5) === todayMD; });
+  birthdayMembers.forEach(function(m){
+    html += '<div class="announce-bar" style="background:var(--pine-soft);border-color:var(--pine);">🎂 오늘은 '+escapeHtml(m.name)+'님 생일이에요! 축하해주세요 🎉</div>';
+  });
+
+  if(announcements.length > 0){
+    var sortedAnnouncements = announcements.slice().sort(function(a,b){ return (b.pinned?1:0) - (a.pinned?1:0); });
+    sortedAnnouncements.slice(0,3).forEach(function(a){
+      html += '<div class="announce-bar">'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+'</div>';
+    });
+  }
+
+  var recentPhotoActivities = activities.filter(function(a){ return a.photo_image; })
+    .slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); }).slice(0, 6);
+  html += '<div class="editorial-panel-row">';
+
+  html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
+  if(recentPhotoActivities.length === 0){
+    html += '<div class="editorial-card"><div class="editorial-badge">📷 RECENT MOMENT</div>';
+    html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">🖼️</div></div>';
+    html += '<div class="editorial-body"><p class="editorial-title">아직 사진이 없어요</p><span></span></div></div>';
+  }else{
+    html += '<div class="editorial-carousel" id="cal_photoCarousel">';
+    recentPhotoActivities.forEach(function(a){
+      html += '<button type="button" class="editorial-card" data-recent-photo-open="'+a.id+'" style="border:none;">';
+      html += '<div class="editorial-badge">📷 RECENT MOMENT</div>';
+      html += '<div class="editorial-image-wrap"><img src="'+a.photo_image+'"></div>';
+      html += '<div class="editorial-body">';
+      html += '<p class="editorial-title">'+escapeHtml(a.title)+' <span class="editorial-title-meta">· '+shortDateLabel(a.date)+'</span></p>';
+      html += '<span class="editorial-cta">자세히 보기 →</span>';
+      html += '</div></button>';
+    });
+    html += '</div>';
+    if(recentPhotoActivities.length > 1){
+      html += '<div class="editorial-dots" id="cal_photoDots">';
+      recentPhotoActivities.forEach(function(a,i){ html += '<span class="dot'+(i===0?' active':'')+'"></span>'; });
+      html += '</div>';
+    }
+  }
+  html += '</div>';
+
+  html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;">';
+  var worshipUrl = currentGroupInfo && currentGroupInfo.worship_video_url;
+  var worshipTitle = (currentGroupInfo && currentGroupInfo.worship_video_title) || '이번 주 예배';
+  if(worshipUrl){
+    var ytThumb = getYoutubeThumbnail(worshipUrl);
+    html += '<a href="'+escapeHtml(worshipUrl)+'" target="_blank" rel="noopener" class="editorial-card">';
+    html += '<div class="editorial-badge">🎬 SUNDAY WORSHIP</div>';
+    html += '<div class="editorial-image-wrap">';
+    html += ytThumb ? ('<img src="'+ytThumb+'">') : '<div class="editorial-video-fallback">▶️</div>';
+    html += '</div>';
+    html += '<div class="editorial-body">';
+    html += '<p class="editorial-title">'+escapeHtml(worshipTitle)+' <span class="editorial-title-meta">· 함께드리는 온라인 예배</span></p>';
+    html += '<span class="editorial-cta">영상 보기 →</span>';
+    html += '</div></a>';
+  }else{
+    html += '<div class="editorial-card"><div class="editorial-badge">🎬 SUNDAY WORSHIP</div>';
+    html += '<div class="editorial-image-wrap"><div class="editorial-video-fallback">▶️</div></div>';
+    html += '<div class="editorial-body"><p class="editorial-title">등록된 영상이 없어요</p><span></span></div></div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+
+  html += '<div class="card ig-calendar-card">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  html += '<button class="btn" id="cal_prevBtn" type="button" style="padding:6px 10px;">‹</button>';
+  html += '<h2 style="font-size:1rem;cursor:pointer;" id="cal_monthLabel">'+calYear+'년 '+calMonth+'월 ▾</h2>';
+  html += '<div style="display:flex;gap:6px;">';
+  html += '<button class="btn" id="cal_todayBtn" type="button" style="padding:6px 10px;" aria-label="오늘로 이동">📅</button>';
+  html += '<button class="btn" id="cal_nextBtn" type="button" style="padding:6px 10px;">›</button>';
+  html += '</div></div>';
+
+  html += '<div class="cal-grid">';
+  ['일','월','화','수','목','금','토'].forEach(function(d,idx){
+    var dowCls = idx===0?' sunday':(idx===6?' saturday':'');
+    html += '<div class="cal-dow'+dowCls+'">'+d+'</div>';
+  });
+
+  var firstDay = new Date(calYear, calMonth-1, 1);
+  var startWeekday = firstDay.getDay();
+  var daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  var todayIso = todayStr();
+
+  for(var i=0; i<startWeekday; i++){ html += '<div></div>'; }
+  for(var d=1; d<=daysInMonth; d++){
+    var iso = calYear+'-'+String(calMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var weekday = new Date(calYear, calMonth-1, d).getDay();
+    var holidayName = getHolidayName(iso);
+    var hasActivity = activities.some(function(a){ return a.date === iso; });
+    var hasPrayer = activities.some(function(a){ return a.date === iso && a.activity_type === '기도요청'; });
+    var cls = 'cal-cell';
+    if(iso===todayIso) cls += ' today';
+    if(hasActivity) cls += ' has-activity';
+    if(holidayName) cls += ' holiday';
+    else if(weekday===0) cls += ' sunday';
+    else if(weekday===6) cls += ' saturday';
+    html += '<div class="'+cls+'" data-date="'+iso+'"'+(holidayName?' title="'+escapeHtml(holidayName)+'"':'')+'>';
+    html += d;
+    if(hasPrayer) html += '<span class="prayer-ico">✝️</span>';
+    if(completedReadingDates[iso]) html += '<span class="reading-done-ico">📖</span>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  document.getElementById('cal_prevBtn').addEventListener('click', function(){
+    calMonth--; if(calMonth < 1){ calMonth = 12; calYear--; }
+    renderCalendarTab();
+  });
+  document.getElementById('cal_nextBtn').addEventListener('click', function(){
+    calMonth++; if(calMonth > 12){ calMonth = 1; calYear++; }
+    renderCalendarTab();
+  });
+  document.getElementById('cal_todayBtn').addEventListener('click', function(){
+    var now = new Date();
+    calYear = now.getFullYear(); calMonth = now.getMonth()+1;
+    renderCalendarTab();
+  });
+  document.getElementById('cal_monthLabel').addEventListener('click', openMonthPickerSheet);
+  el.querySelectorAll('[data-recent-photo-open]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var act = activities.find(function(x){ return x.id === btn.getAttribute('data-recent-photo-open'); });
+      if(!act) return;
+      var readOnly = currentMember.role === 'member' && act.created_by !== currentMember.id;
+      openActivityForm(act, act.date, readOnly);
+    });
+  });
+  var photoCarouselEl = document.getElementById('cal_photoCarousel');
+  if(photoCarouselEl){
+    var photoDots = document.querySelectorAll('#cal_photoDots .dot');
+    photoCarouselEl.addEventListener('scroll', function(){
+      var idx = Math.round(photoCarouselEl.scrollLeft / photoCarouselEl.clientWidth);
+      photoDots.forEach(function(d,i){ d.classList.toggle('active', i === idx); });
+    });
+  }
+  el.querySelectorAll('.cal-cell[data-date]').forEach(function(cell){
+    cell.addEventListener('click', function(){
+      openDateMenu(cell.getAttribute('data-date'));
+    });
+  });
+}
+
+function openActivityForm(existing, dateIso, readOnly){
+  var e = existing || {};
+  document.getElementById('activitySheetTitle').textContent = readOnly ? '👁️ 소모임 활동 (보기 전용)' : (existing ? '✏️ 소모임 활동 수정' : '➕ 소모임 활동 등록');
+
+  var existingAttendance = existing ? attendance.filter(function(a){ return a.activity_id === existing.id; }) : [];
+  var presentIds = {};
+  existingAttendance.forEach(function(a){ if(a.present) presentIds[a.member_id] = true; });
+
+  var html = '';
+  html += '<div class="field"><span class="field-label">날짜</span><input type="date" id="act_date" value="'+(e.date||dateIso)+'"></div>';
+  html += '<div class="field"><span class="field-label">제목</span><input type="text" id="act_title" placeholder="예: 정기 소모임" value="'+escapeHtml(e.title||'')+'"></div>';
+  if(activityTypes.length > 0){
+    html += '<div class="field"><span class="field-label">활동 항목(선택)</span><select id="act_type">';
+    html += '<option value="">선택 안 함</option>';
+    activityTypes.forEach(function(t){
+      html += '<option value="'+escapeHtml(t.name)+'"'+(e.activity_type===t.name?' selected':'')+'>'+(t.name==='기도요청'?'✝️ ':'')+escapeHtml(t.name)+'</option>';
+    });
+    html += '</select></div>';
+  }
+  html += '<div class="field"><span class="field-label">메모</span><textarea id="act_memo" rows="2" placeholder="선택 입력">'+escapeHtml(e.memo||'')+'</textarea></div>';
+
+  html += '<div id="act_locationSection">';
+  html += '<div class="field"><span class="field-label">장소</span>';
+  html += '<div class="row2"><input type="text" id="act_locationName" placeholder="예: 은혜교회 3층 소모임실" value="'+escapeHtml(e.location_name||'')+'" style="flex:2;">';
+  html += '<button type="button" class="btn" id="act_mapSearchBtn" style="flex:1;">🗺️ 지도에서 찾기</button></div></div>';
+  html += '<button type="button" class="btn" id="act_gpsBtn" style="width:100%;margin-bottom:6px;">📍 현재 위치로 지도 좌표 담기</button>';
+  html += '<p class="savehint" id="act_gpsStatus" style="margin-bottom:12px;">'+(e.location_lat?'현재 좌표가 담겨 있어요('+e.location_lat.toFixed(4)+', '+e.location_lng.toFixed(4)+').':'좌표를 담으면 지도로 바로 열어볼 수 있어요.')+'</p>';
+  html += '</div>';
+
+  html += '<div id="act_receiptSection">';
+  html += '<div class="field"><span class="field-label">영수증 사진 (선택)</span>';
+  html += '<input type="file" accept="image/*" id="act_receiptInput" style="display:none;">';
+  html += '<div id="act_receiptPreview">'+imagePreviewHTML('act_receipt', e.receipt_image)+'</div></div>';
+  html += '</div>';
+
+  html += '<div class="field"><span class="field-label">활동 사진 (선택)</span>';
+  html += '<input type="file" accept="image/*" id="act_photoInput" style="display:none;">';
+  html += '<div id="act_photoPreview">'+imagePreviewHTML('act_photo', e.photo_image)+'</div></div>';
+
+  html += '<div id="act_attendanceSection">';
+  html += '<p class="field-label-strong" style="margin:14px 0 8px;">출석 체크</p>';
+  html += '<div class="card" id="act_attendanceList">';
+  members.forEach(function(m){
+    var checked = presentIds[m.id] ? ' selected' : '';
+    html += '<div class="member-row"><span>'+escapeHtml(m.name)+roleBadgeHTML(m.role)+'</span>';
+    html += '<button type="button" class="chip'+checked+'" data-member-id="'+m.id+'">'+(presentIds[m.id]?'출석':'출석체크')+'</button></div>';
+  });
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div id="act_prayerAnnounceSection" style="display:none;margin-top:12px;">';
+  html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">';
+  html += '<input type="checkbox" id="act_prayerAnnounceCheck"'+(e._prayerAnnounced?' checked':'')+'> <span class="savehint">공지에 등록해서 합심기도 하기</span>';
+  html += '</label>';
+  html += '<div style="margin-top:8px;"><span class="field-label">만료일(선택, 비워두면 활동 날짜에 만료)</span><input type="date" id="act_prayerAnnounceExpires"></div>';
+  html += '</div>';
+
+  html += '<div class="row2" style="margin-top:14px;">';
+  html += '<button class="btn btn-block" id="act_cancelBtn" type="button">'+(readOnly?'닫기':'취소')+'</button>';
+  if(!readOnly){
+    html += '<button class="btn btn-primary btn-block" id="act_saveBtn" type="button">'+(existing?'수정 완료':'등록')+'</button>';
+  }
+  html += '</div>';
+  if(existing && !readOnly){
+    html += '<button class="btn btn-danger btn-block" id="act_deleteBtn" type="button" style="margin-top:8px;">이 활동 삭제</button>';
+  }
+  if(readOnly){
+    html += '<p class="savehint" style="text-align:center;margin-top:10px;">다른 멤버가 등록한 활동이라 보기만 가능해요.</p>';
+  }
+
+  document.getElementById('activitySheetBody').innerHTML = html;
+  openSheet('activitySheet');
+
+  if(readOnly){
+    document.getElementById('activitySheetBody').querySelectorAll('input, select, textarea, button').forEach(function(el2){
+      if(el2.id === 'act_cancelBtn') return;
+      el2.disabled = true;
+    });
+    document.getElementById('act_cancelBtn').addEventListener('click', function(){ closeSheet('activitySheet'); });
+    return;
+  }
+
+  function applyPrayerModeUI(){
+    var typeSelect = document.getElementById('act_type');
+    var isPrayer = typeSelect && typeSelect.value === '기도요청';
+    var locSection = document.getElementById('act_locationSection');
+    var receiptSection = document.getElementById('act_receiptSection');
+    var attSection = document.getElementById('act_attendanceSection');
+    var prayerAnnounceSection = document.getElementById('act_prayerAnnounceSection');
+    [locSection, receiptSection, attSection].forEach(function(sec){
+      if(!sec) return;
+      sec.style.opacity = isPrayer ? '0.4' : '1';
+      sec.querySelectorAll('input, button, textarea').forEach(function(el2){
+        if(el2.id === 'act_type') return;
+        el2.disabled = isPrayer;
+      });
+    });
+    if(prayerAnnounceSection) prayerAnnounceSection.style.display = isPrayer ? 'block' : 'none';
+  }
+  var typeSelectEl = document.getElementById('act_type');
+  if(typeSelectEl){
+    typeSelectEl.addEventListener('change', applyPrayerModeUI);
+    applyPrayerModeUI();
+  }
+
+  var toggledPresent = Object.assign({}, presentIds);
+  document.querySelectorAll('#act_attendanceList .chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var mid = chip.getAttribute('data-member-id');
+      if(toggledPresent[mid]){ delete toggledPresent[mid]; chip.classList.remove('selected'); chip.textContent = '출석체크'; }
+      else{ toggledPresent[mid] = true; chip.classList.add('selected'); chip.textContent = '출석'; }
+    });
+  });
+
+  var currentReceiptImage = e.receipt_image || null;
+  var currentPhotoImage = e.photo_image || null;
+  var currentLat = e.location_lat != null ? e.location_lat : null;
+  var currentLng = e.location_lng != null ? e.location_lng : null;
+
+  function wireImageField(prefix, getCurrent, setCurrent, inputId){
+    function refresh(){
+      document.getElementById(prefix+'Preview').innerHTML = imagePreviewHTML(prefix, getCurrent());
+      wire();
+    }
+    function wire(){
+      var addBtn = document.getElementById(prefix+'_addBtn');
+      if(addBtn) addBtn.addEventListener('click', function(){ document.getElementById(inputId).click(); });
+      var removeBtn = document.getElementById(prefix+'_removeBtn');
+      if(removeBtn) removeBtn.addEventListener('click', function(){ setCurrent(null); refresh(); });
+      var thumb = document.getElementById(prefix+'_thumb');
+      if(thumb) thumb.addEventListener('click', function(){ openImageViewer(getCurrent()); });
+    }
+    wire();
+    document.getElementById(inputId).addEventListener('change', function(ev){
+      var file = ev.target.files[0];
+      if(!file) return;
+      compressImageToDataURL(file, function(dataUrl){ setCurrent(dataUrl); refresh(); });
+    });
+  }
+  wireImageField('act_receipt', function(){ return currentReceiptImage; }, function(v){ currentReceiptImage = v; }, 'act_receiptInput');
+  wireImageField('act_photo', function(){ return currentPhotoImage; }, function(v){ currentPhotoImage = v; }, 'act_photoInput');
+
+  document.getElementById('act_gpsBtn').addEventListener('click', function(){
+    var statusEl = document.getElementById('act_gpsStatus');
+    if(!navigator.geolocation){ statusEl.textContent = '이 기기/브라우저는 위치 기능을 지원하지 않아요.'; return; }
+    statusEl.textContent = '위치를 확인하는 중…';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+      statusEl.textContent = '현재 좌표를 담았어요('+currentLat.toFixed(4)+', '+currentLng.toFixed(4)+').';
+    }, function(err){
+      statusEl.textContent = '위치를 가져오지 못했어요('+err.message+'). 브라우저 위치 권한을 확인해주세요.';
+    });
+  });
+
+  document.getElementById('act_mapSearchBtn').addEventListener('click', function(){
+    openMapSearchSheet(function(name, lat, lng){
+      document.getElementById('act_locationName').value = name || document.getElementById('act_locationName').value;
+      currentLat = lat; currentLng = lng;
+      document.getElementById('act_gpsStatus').textContent = '지도에서 좌표를 담았어요('+lat.toFixed(4)+', '+lng.toFixed(4)+').';
+    });
+  });
+
+  document.getElementById('act_cancelBtn').addEventListener('click', function(){ closeSheet('activitySheet'); });
+  if(existing){
+    document.getElementById('act_deleteBtn').addEventListener('click', async function(){
+      await supabaseClient.from('sg_attendance').delete().eq('activity_id', existing.id);
+      await supabaseClient.from('sg_activities').delete().eq('id', existing.id);
+      closeSheet('activitySheet');
+      await loadGroupData(currentMember.group_id);
+      renderCalendarTab();
+      showToast('삭제했어요.');
+    });
+  }
+
+  document.getElementById('act_saveBtn').addEventListener('click', async function(){
+    var date = document.getElementById('act_date').value;
+    var title = document.getElementById('act_title').value.trim();
+    var memo = document.getElementById('act_memo').value.trim();
+    if(!date || !title){ showToast('날짜와 제목을 입력해주세요.'); return; }
+
+    var activityId = existing ? existing.id : uid();
+    var typeSelect = document.getElementById('act_type');
+    var payload = {
+      id: activityId, group_id: currentMember.group_id, date: date, title: title, memo: memo,
+      activity_type: (typeSelect && typeSelect.value) ? typeSelect.value : null,
+      location_name: document.getElementById('act_locationName').value.trim() || null,
+      location_lat: currentLat, location_lng: currentLng,
+      receipt_image: currentReceiptImage, photo_image: currentPhotoImage
+    };
+    if(!existing) payload.created_by = currentMember.id;
+    var res = existing
+      ? await supabaseClient.from('sg_activities').update(payload).eq('id', activityId)
+      : await supabaseClient.from('sg_activities').insert(payload);
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+
+    var isPrayerSave = payload.activity_type === '기도요청';
+
+    if(!isPrayerSave){
+      var attendanceRows = members.map(function(m){
+        return { id: uid(), activity_id: activityId, member_id: m.id, present: !!toggledPresent[m.id] };
+      });
+      await supabaseClient.from('sg_attendance').delete().eq('activity_id', activityId);
+      if(attendanceRows.length > 0){
+        await supabaseClient.from('sg_attendance').insert(attendanceRows);
+      }
+    }
+
+    var prayerCheck = document.getElementById('act_prayerAnnounceCheck');
+    if(isPrayerSave && prayerCheck && prayerCheck.checked){
+      var prayerExpiresInput = document.getElementById('act_prayerAnnounceExpires');
+      var prayerExpires = (prayerExpiresInput && prayerExpiresInput.value) ? prayerExpiresInput.value : date;
+      await supabaseClient.from('sg_announcements').insert({
+        id: uid(), group_id: currentMember.group_id,
+        content: '🙏 ['+date+'] '+title+(memo?' - '+memo:'')+' 함께 합심기도해요!',
+        created_by: currentMember.id, expires_at: prayerExpires
+      });
+    }
+
+    closeSheet('activitySheet');
+    await loadGroupData(currentMember.group_id);
+    renderCalendarTab();
+    showToast(existing ? '수정했어요.' : '등록했어요.');
+  });
+}
+
+async function openDateMenu(dateIso){
+  selectedCalDate = dateIso;
+  var dayActivities = activities.filter(function(a){ return a.date === dateIso; });
+
+  var readingBtnLabel = '📖 성경통독';
+  var plan = await loadReadingPlan(currentMember.id);
+  if(plan){
+    var dayIndex = daysBetweenInclusive(plan.start_date, dateIso);
+    if(dayIndex >= 1 && dayIndex <= daysBetweenInclusive(plan.start_date, plan.end_date)){
+      readingBtnLabel = '📖 '+dayIndex+'일차 성경통독 읽기';
+    }
+  }
+
+  var html = '';
+  html += '<p class="field-label-strong" style="margin-bottom:10px;">'+niceDate(dateIso)+'</p>';
+
+  html += '<div class="chiprow" style="margin-bottom:14px;">';
+  html += '<button class="chip" id="dm_readingBtn" type="button">'+readingBtnLabel+'</button>';
+  html += '</div>';
+
+  html += '<p class="field-label-strong">소모임 활동</p>';
+  if(dayActivities.length === 0){
+    html += '<p class="empty-inline">등록된 활동이 없어요.</p>';
+  }else{
+    dayActivities.forEach(function(a){
+      var isPrayer = a.activity_type === '기도요청';
+      html += '<div class="card" data-activity-open="'+a.id+'" style="cursor:pointer;">';
+      html += '<p style="font-weight:700;">'+(isPrayer?'✝️ ':'')+escapeHtml(a.title)+(a.activity_type?' <span class="savehint">('+escapeHtml(a.activity_type)+')</span>':'')+'</p>';
+      if(a.memo) html += '<p class="savehint" style="margin-top:4px;">'+escapeHtml(a.memo)+'</p>';
+      if(a.location_name) html += '<p class="savehint" style="margin-top:4px;">📍 '+escapeHtml(a.location_name)+'</p>';
+      if(a.photo_image) html += '<img src="'+a.photo_image+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-top:6px;border:1px solid var(--line);">';
+      if(a.receipt_image) html += '<p class="savehint" style="margin-top:4px;">🧾 영수증 첨부됨</p>';
+      if(isPrayer){
+        var presentNames = attendance.filter(function(at){ return at.activity_id === a.id && at.present; })
+          .map(function(at){ var m = members.find(function(mm){ return mm.id === at.member_id; }); return m ? m.name : null; })
+          .filter(Boolean);
+        if(presentNames.length > 0){
+          html += '<p class="savehint" style="margin-top:6px;">'+presentNames.map(function(n){ return '✝️ '+escapeHtml(n); }).join(', ')+'</p>';
+        }
+      }
+      html += '</div>';
+    });
+  }
+  html += '<button class="btn btn-block" id="dm_addActivityBtn" type="button" style="margin-top:8px;">+ 소모임 활동 등록</button>';
+
+  document.getElementById('genericSheetTitle').textContent = '📅 '+niceDate(dateIso);
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+
+  document.getElementById('dm_readingBtn').addEventListener('click', function(){
+    closeSheet('genericSheet');
+    openDailyReadingForDate(dateIso);
+  });
+  document.getElementById('dm_addActivityBtn').addEventListener('click', function(){
+    closeSheet('genericSheet');
+    openActivityForm(null, dateIso);
+  });
+  document.querySelectorAll('[data-activity-open]').forEach(function(c){
+    c.addEventListener('click', function(){
+      var act = activities.find(function(x){ return x.id === c.getAttribute('data-activity-open'); });
+      closeSheet('genericSheet');
+      var readOnly = currentMember.role === 'member' && act.created_by !== currentMember.id;
+      openActivityForm(act, dateIso, readOnly);
+    });
+  });
+}
+
+// ---------- 로그인 ----------
+function saveSession(memberId){
+  try{ localStorage.setItem(LOCAL_SESSION_KEY, memberId); }catch(e){}
+}
+function clearSession(){
+  try{ localStorage.removeItem(LOCAL_SESSION_KEY); }catch(e){}
+}
+function getSavedSession(){
+  try{ return localStorage.getItem(LOCAL_SESSION_KEY); }catch(e){ return null; }
+}
+
+async function renderLoginScreen(){
+  var app = document.getElementById('app');
+  groups = await loadGroups();
+  var initialGroup = groups[0] || null;
+  applyAppearance(initialGroup);
+
+  var html = '';
+  html += '<div class="screen" style="padding-top:60px;">';
+  html += '<div style="text-align:center;margin-bottom:32px;padding:24px 16px;border-radius:16px;" id="login_logoBlock">';
+  html += '<h1 style="font-size:1.625rem;'+(initialGroup&&initialGroup.logo_color?'color:'+initialGroup.logo_color+';':'')+'">🙏 '+escapeHtml((initialGroup&&initialGroup.logo_title)||'소그룹커뮤')+'</h1>';
+  html += '<p class="savehint" style="margin-top:6px;">교회 소그룹 모임 관리</p>';
+  html += '</div>';
+
+  html += '<div class="card">';
+  html += '<div class="field"><span class="field-label">소그룹 선택</span><select id="login_group">';
+  if(groups.length === 0){
+    html += '<option value="">등록된 소그룹이 없어요</option>';
+  }else{
+    groups.forEach(function(g){ html += '<option value="'+g.id+'">'+escapeHtml(g.name)+'</option>'; });
+  }
+  html += '</select></div>';
+  html += '<div class="field"><span class="field-label">이름</span><input type="text" id="login_name" placeholder="이름을 입력하세요"></div>';
+  html += '<div class="field"><span class="field-label">PIN 번호</span><input type="password" id="login_pin" inputmode="numeric" placeholder="4자리 PIN"></div>';
+  html += '<p class="savehint" id="login_error" style="color:var(--brick);min-height:18px;"></p>';
+  html += '<button class="btn btn-primary btn-block" id="login_btn" type="button">로그인</button>';
+  html += '</div>';
+
+  if(groups.length === 0){
+    html += '<button class="btn btn-block" id="login_firstSetupBtn" type="button" style="margin-top:8px;">🌱 아직 소그룹이 없어요 — 처음 시작하기</button>';
+  }
+
+  html += '</div>';
+
+  app.innerHTML = html;
+  applyLoginHeaderBg(initialGroup);
+
+  if(groups.length === 0){
+    document.getElementById('login_firstSetupBtn').addEventListener('click', openFirstSetupSheet);
+  }
+
+  document.getElementById('login_group').addEventListener('change', function(){
+    var g = groups.find(function(x){ return x.id === this.value; }, this);
+    applyAppearance(g);
+    var logoBlock = document.getElementById('login_logoBlock');
+    logoBlock.querySelector('h1').textContent = '🙏 '+((g&&g.logo_title)||'소그룹커뮤');
+    logoBlock.querySelector('h1').style.color = (g&&g.logo_color) || '';
+    applyLoginHeaderBg(g);
+  });
+
+  ['login_name','login_pin'].forEach(function(fieldId){
+    document.getElementById(fieldId).addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter'){
+        ev.preventDefault();
+        document.getElementById('login_btn').click();
+      }
+    });
+  });
+
+  document.getElementById('login_btn').addEventListener('click', async function(){
+    var groupId = document.getElementById('login_group').value;
+    var name = document.getElementById('login_name').value.trim();
+    var pin = document.getElementById('login_pin').value.trim();
+    var errEl = document.getElementById('login_error');
+    if(!groupId){ errEl.textContent = '소그룹을 선택해주세요.'; return; }
+    if(!name || !pin){ errEl.textContent = '이름과 PIN을 입력해주세요.'; return; }
+
+    var res = await supabaseClient.from('sg_members').select('*').eq('group_id', groupId).eq('name', name).eq('pin', pin).limit(1);
+    if(res.error || !res.data || res.data.length === 0){
+      var otherGroupRes = await supabaseClient.from('sg_members').select('id').eq('name', name).eq('pin', pin).limit(1);
+      if(!otherGroupRes.error && otherGroupRes.data && otherGroupRes.data.length > 0){
+        errEl.textContent = '본인의 소그룹이 일치하지 않아요.';
+      }else{
+        errEl.textContent = '이름 또는 PIN이 일치하지 않아요.';
+      }
+      return;
+    }
+    currentMember = res.data[0];
+    saveSession(currentMember.id);
+    await loadGroupData(currentMember.group_id);
+    activeTab = 'calendar';
+    renderMainApp();
+  });
+}
+
+function openFirstSetupSheet(){
+  var html = '';
+  html += '<p class="savehint" style="margin-bottom:12px;">가장 처음이라 소그룹이 하나도 없어요. 첫 소그룹과 최고관리자 계정을 만들어요. 이후 새 소그룹 추가는 이 계정만 할 수 있어요.</p>';
+  html += '<div class="field"><span class="field-label">소그룹 이름</span><input type="text" id="setup_groupName" placeholder="예: 은혜1소그룹"></div>';
+  html += '<div class="field"><span class="field-label">최고관리자 이름</span><input type="text" id="setup_adminName" placeholder="이름"></div>';
+  html += '<div class="field"><span class="field-label">PIN(4자리)</span><input type="password" id="setup_adminPin" inputmode="numeric" placeholder="4자리 숫자"></div>';
+  html += '<button class="btn btn-primary btn-block" id="setup_confirmBtn" type="button" style="margin-top:12px;">시작하기</button>';
+
+  document.getElementById('genericSheetBody').innerHTML = html;
+  document.getElementById('genericSheetTitle').textContent = '🌱 처음 시작하기';
+  openSheet('genericSheet');
+
+  document.getElementById('setup_confirmBtn').addEventListener('click', async function(){
+    var name = document.getElementById('setup_groupName').value.trim();
+    var adminName = document.getElementById('setup_adminName').value.trim();
+    var adminPin = document.getElementById('setup_adminPin').value.trim();
+    if(!name || !adminName || !adminPin){ showToast('모든 항목을 입력해주세요.'); return; }
+
+    var groupRes = await supabaseClient.from('sg_groups').insert({ id: uid(), name: name }).select();
+    if(groupRes.error){ showToast('소그룹 생성 실패: '+groupRes.error.message); return; }
+    var newGroup = groupRes.data[0];
+
+    var memberRes = await supabaseClient.from('sg_members').insert({
+      id: uid(), group_id: newGroup.id, name: adminName, pin: adminPin, role: 'super_admin'
+    });
+    if(memberRes.error){ showToast('관리자 등록 실패: '+memberRes.error.message); return; }
+
+    closeSheet('genericSheet');
+    showToast('설정 완료! 방금 만든 계정으로 로그인해주세요.');
+    renderLoginScreen();
+  });
+}
+
+function openNewGroupSheet(){
+  var html = '';
+  html += '<div class="field"><span class="field-label">소그룹 이름</span><input type="text" id="newgroup_name" placeholder="예: 은혜1소그룹"></div>';
+  html += '<div class="field"><span class="field-label">첫 관리자 이름</span><input type="text" id="newgroup_adminName" placeholder="소그룹장 이름"></div>';
+  html += '<div class="field"><span class="field-label">관리자 PIN(4자리)</span><input type="password" id="newgroup_adminPin" inputmode="numeric" placeholder="4자리 숫자"></div>';
+  html += '<p class="savehint">새 소그룹을 만들면 입력한 분이 이 소그룹의 첫 관리자가 돼요. 이후 관리자가 다른 멤버를 추가할 수 있어요.</p>';
+  html += '<button class="btn btn-primary btn-block" id="newgroup_confirmBtn" type="button" style="margin-top:12px;">소그룹 만들기</button>';
+
+  document.getElementById('genericSheetBody').innerHTML = html;
+  document.getElementById('genericSheetTitle').textContent = '🌱 새 소그룹 만들기';
+  openSheet('genericSheet');
+
+  document.getElementById('newgroup_confirmBtn').addEventListener('click', async function(){
+    var name = document.getElementById('newgroup_name').value.trim();
+    var adminName = document.getElementById('newgroup_adminName').value.trim();
+    var adminPin = document.getElementById('newgroup_adminPin').value.trim();
+    if(!name || !adminName || !adminPin){ showToast('모든 항목을 입력해주세요.'); return; }
+
+    var groupRes = await supabaseClient.from('sg_groups').insert({ id: uid(), name: name }).select();
+    if(groupRes.error){ showToast('소그룹 생성 실패: '+groupRes.error.message); return; }
+    var newGroup = groupRes.data[0];
+
+    var memberRes = await supabaseClient.from('sg_members').insert({
+      id: uid(), group_id: newGroup.id, name: adminName, pin: adminPin, role: 'admin'
+    });
+    if(memberRes.error){ showToast('관리자 등록 실패: '+memberRes.error.message); return; }
+
+    closeSheet('genericSheet');
+    showToast('새 소그룹 "'+name+'"을(를) 만들었어요. '+adminName+'님이 그 소그룹의 첫 관리자예요.');
+  });
+}
+
+// ---------- 초기화 ----------
+async function initApp(){
+  try{
+    var savedId = getSavedSession();
+    if(savedId){
+      var res = await supabaseClient.from('sg_members').select('*').eq('id', savedId).limit(1);
+      if(!res.error && res.data && res.data.length > 0){
+        currentMember = res.data[0];
+        await loadGroupData(currentMember.group_id);
+        renderMainApp();
+        return;
+      }
+    }
+    await renderLoginScreen();
+  }catch(err){
+    console.error('initApp error:', err);
+    document.getElementById('app').innerHTML =
+      '<div class="screen" style="padding-top:80px;text-align:center;">'+
+      '<p style="font-size:2.5rem;">⚠️</p>'+
+      '<p class="field-label-strong">서버에 연결하지 못했어요.</p>'+
+      '<p class="savehint" style="margin-top:8px;">인터넷 연결, 방화벽/광고차단 확장 프로그램을 확인한 뒤 새로고침 해주세요.</p>'+
+      '<button class="btn btn-primary" style="margin-top:16px;" onclick="location.reload()">다시 시도</button>'+
+      '</div>';
+  }
+}
+if(supabaseClient) initApp();
+</script>
+</body>
+</html>
