@@ -929,8 +929,46 @@ function computeAttendanceStats(range, activityTypeFilter){
   });
   return stats;
 }
+function computePrayerRequestStats(range){
+  // 기도요청은 출석체크 자체가 없으므로, "등록한 기도요청 개수"를 통계로 사용해요.
+  var stats = {};
+  members.forEach(function(m){ stats[m.id] = { present:0, total:0 }; });
+  activities.forEach(function(a){
+    if(a.activity_type !== '기도요청') return;
+    var inRange = !range || (a.date >= range.start && a.date <= range.end);
+    if(!inRange) return;
+    if(!a.created_by || !stats[a.created_by]) return;
+    stats[a.created_by].present++;
+    stats[a.created_by].total++;
+  });
+  return stats;
+}
 
 var DONUT_COLORS = ['#3F6357','#A8452F','#B8791E','#2B6FCB','#8A7B4E','#6B4E8A','#4E8A7A','#C25B8A'];
+function clockPointOnCircle(cx, cy, r, clockDeg){
+  var rad = (clockDeg - 90) * Math.PI / 180;
+  return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
+}
+function renderGaugeArcSVG(pct, size, strokeWidth, trackColor, fillColor){
+  // 게이지는 8시 방향(240°)에서 시작해 12시를 지나 4시 방향(120°, 다음바퀴 480°)까지, 총 240도만 그려요.
+  // 남은 120도(4시~8시 구간, 아래쪽)는 완전히 비워둬서, 그 자리에 "N일 느림" 같은 텍스트를 넣을 수 있게 해요.
+  var cx = size/2, cy = size/2, r = (size - strokeWidth)/2;
+  var startDeg = 240, sweepDeg = 240;
+  var endDeg = startDeg + sweepDeg; // 480 = 다음바퀴 120
+  var p0 = clockPointOnCircle(cx, cy, r, startDeg);
+  var p1 = clockPointOnCircle(cx, cy, r, endDeg);
+  var svg = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">';
+  svg += '<path d="M '+p0.x+' '+p0.y+' A '+r+' '+r+' 0 1 1 '+p1.x+' '+p1.y+'" fill="none" stroke="'+trackColor+'" stroke-width="'+strokeWidth+'" stroke-linecap="round"/>';
+  if(pct > 0){
+    var fillSweep = sweepDeg * Math.min(1, pct);
+    var fillEndDeg = startDeg + fillSweep;
+    var pf = clockPointOnCircle(cx, cy, r, fillEndDeg);
+    var largeArc = fillSweep > 180 ? 1 : 0;
+    svg += '<path d="M '+p0.x+' '+p0.y+' A '+r+' '+r+' 0 '+largeArc+' 1 '+pf.x+' '+pf.y+'" fill="none" stroke="'+fillColor+'" stroke-width="'+strokeWidth+'" stroke-linecap="round"/>';
+  }
+  svg += '</svg>';
+  return svg;
+}
 function renderDonutSVG(dataArr, size, holeRatio){
   size = size || 140;
   holeRatio = holeRatio || 0.6;
@@ -979,7 +1017,7 @@ async function loadCompletedCountsInRange(planIds, start, end){
 async function renderMembersTab(){
   var el = document.getElementById('tabContent');
   var range = getStatPeriodRange(memberStatPeriodType, memberStatAnchor);
-  var stats = computeAttendanceStats(range, memberStatActivityType);
+  var stats = memberStatActivityType === '기도요청' ? computePrayerRequestStats(range) : computeAttendanceStats(range, memberStatActivityType);
   var isAdmin = isAdminRole(currentMember.role);
 
   var memberIds = members.map(function(m){ return m.id; });
@@ -1068,16 +1106,17 @@ async function renderMembersTab(){
   }
 
   html += '<div class="card" style="text-align:center;">';
-  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):'')+'</p>';
+  var isPrayerStat = memberStatActivityType === '기도요청';
+  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 '+(isPrayerStat?'기도요청 등록 현황':'출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):''))+'</p>';
   var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
   var totalPresentAll = donutData.reduce(function(s,d){ return s+d.value; }, 0);
   html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(donutData, 150, 0.62)+
     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
-    '<p style="font-size:1.25rem;font-weight:800;">'+totalPresentAll+'</p><p class="savehint">총 출석</p></div></div>';
+    '<p style="font-size:1.25rem;font-weight:800;">'+totalPresentAll+'</p><p class="savehint">'+(isPrayerStat?'총 등록':'총 출석')+'</p></div></div>';
   html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
   donutData.forEach(function(d){
     if(d.value<=0) return;
-    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+'회</span>';
+    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+(isPrayerStat?'건':'회')+'</span>';
   });
   html += '</div></div>';
 
@@ -1365,11 +1404,13 @@ async function renderMyTab(){
     html += '<div class="stat-mini-card"><p class="stat-label">진행중</p><p class="stat-value">'+daysElapsed+'</p><p class="stat-sub">일차</p><p class="stat-sub" style="color:var(--blue);font-weight:700;">'+totalDays+'일</p></div>';
     var gaugePct = totalDays > 0 ? Math.min(1, completedCount/totalDays) : 0;
     var gaugeColor = diff>0 ? 'var(--amber)' : 'var(--pine)';
-    html += '<div class="stat-mini-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">';
-    html += '<div style="position:relative;width:72px;height:72px;">'+renderDonutSVG([{value:gaugePct,color:gaugeColor},{value:1-gaugePct,color:'var(--line)'}], 72, 0.72)+
-      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
-      '<p style="font-size:1.0625rem;font-weight:800;line-height:1.1;">'+completedCount+'</p><p style="font-size:0.5625rem;color:var(--ink-faint);">일 읽음</p></div></div>';
-    html += '<p class="stat-sub" style="margin-top:4px;color:'+gaugeColor+';">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행'))+'</p>';
+    var gaugeSize = 100;
+    html += '<div class="stat-mini-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;">';
+    html += '<div style="position:relative;width:'+gaugeSize+'px;height:'+gaugeSize+'px;">'+renderGaugeArcSVG(gaugePct, gaugeSize, 12, 'var(--line)', gaugeColor)+
+      '<div style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
+      '<p style="font-size:1.375rem;font-weight:800;line-height:1.1;color:'+gaugeColor+';">'+completedCount+'</p><p style="font-size:0.625rem;color:var(--ink-faint);">일 읽음</p></div>'+
+      '<p style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:100%;text-align:center;font-size:0.6875rem;font-weight:700;color:'+gaugeColor+';white-space:nowrap;margin:0;">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행'))+'</p>'+
+      '</div>';
     html += '</div>';
     var expDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expectedCompletionText);
     html += '<div class="stat-mini-card"><p class="stat-label" style="color:var(--amber);">📅 예상완독일</p>';
@@ -1385,7 +1426,7 @@ async function renderMyTab(){
     html += '<div class="reading-panel">';
     html += '<div style="margin:8px 0 6px;position:relative;height:26px;">';
     html += '<div class="progress-bar-bg" style="position:absolute;top:9px;left:0;right:0;"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>';
-    html += '<span style="position:absolute;top:0;left:calc('+pct+'% - 11px);font-size:1.25rem;transition:left 0.3s;display:inline-block;transform:scaleX(-1);">🚴</span>';
+    html += '<span style="position:absolute;top:-6px;left:calc('+pct+'% - 16px);font-size:2rem;transition:left 0.3s;display:inline-block;transform:scaleX(-1);">🚴</span>';
     html += '</div>';
     html += '<p class="savehint" style="text-align:center;"><b style="color:var(--amber);">나 '+completedCount+'일</b> / 오늘 '+daysElapsed+'일차</p>';
     html += '<p class="savehint" style="text-align:center;">목표기간 : '+plan.start_date+' ~ '+plan.end_date+'</p>';
@@ -2308,9 +2349,10 @@ function openPrayerAnswerScreen(){
         .map(function(at){ var m = members.find(function(mm){ return mm.id === at.member_id; }); return m ? m.name : null; })
         .filter(Boolean);
       var canEdit = isAdminRole(currentMember.role) || a.created_by === currentMember.id;
+      var registrant = members.find(function(mm){ return mm.id === a.created_by; });
       html += '<div class="card" data-prayer-id="'+a.id+'" style="'+(a.prayer_answered?'background:var(--pine-soft);border-color:var(--pine);':'')+'">';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-      html += '<div><p style="font-weight:700;">✝️ '+escapeHtml(a.title)+'</p><p class="savehint">'+niceDate(a.date)+'</p></div>';
+      html += '<div><p style="font-weight:700;">✝️ '+escapeHtml(a.title)+'</p><p class="savehint">'+niceDate(a.date)+' · '+escapeHtml(registrant?registrant.name:'알 수 없음')+'님 등록</p></div>';
       html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">';
       html += '<input type="checkbox" class="prayer-answered-check" data-prayer-check="'+a.id+'"'+(a.prayer_answered?' checked':'')+(canEdit?'':' disabled')+'> <span class="savehint">기도응답</span>';
       html += '</label></div>';
