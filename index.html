@@ -190,6 +190,7 @@
   }
   .cal-cell .reading-done-ico{position:absolute; top:1px; right:2px; font-size:0.5625rem; line-height:1;}
   .cal-cell .prayer-ico{position:absolute; top:1px; left:2px; font-size:0.5625rem; line-height:1;}
+  .cal-cell .chat-ico{position:absolute; bottom:1px; right:2px; font-size:0.5625rem; line-height:1;}
   .cal-cell.faded{color:var(--ink-faint);}
   .cal-cell.sunday, .cal-cell.holiday{color:var(--brick); font-weight:700;}
   .cal-cell.saturday{color:var(--blue); font-weight:700;}
@@ -305,7 +306,8 @@
     <button class="sheet-close" type="button" onclick="closeDailyChatSheet()">✕</button>
   </div>
   <div id="dailyChatMessages" style="max-height:50vh;overflow-y:auto;margin-bottom:10px;"></div>
-  <div style="display:flex;gap:8px;">
+  <p class="savehint" id="dailyChatReadOnlyNotice" style="display:none;text-align:center;">📌 오늘 날짜에만 채팅을 남길 수 있어요. 이 날짜는 내역만 볼 수 있어요.</p>
+  <div id="dailyChatInputRow" style="display:flex;gap:8px;">
     <input type="text" id="dailyChatInput" placeholder="메시지를 입력하세요" style="flex:1;">
     <button class="btn btn-primary" id="dailyChatSendBtn" type="button" style="flex-shrink:0;padding:10px 16px;">전송</button>
   </div>
@@ -1591,16 +1593,34 @@ async function loadDailyChats(groupId, dateIso){
   }catch(err){ console.error('loadDailyChats error:', err); return []; }
 }
 
+async function loadChatDatesInRange(groupId, startDate, endDate){
+  try{
+    var res = await supabaseClient.from('sg_daily_chats').select('date').eq('group_id', groupId).gte('date', startDate).lte('date', endDate);
+    if(res.error){ console.error(res.error); return {}; }
+    var set = {};
+    (res.data||[]).forEach(function(r){ set[r.date] = true; });
+    return set;
+  }catch(err){ console.error('loadChatDatesInRange error:', err); return {}; }
+}
+
 var dailyChatPollTimer = null;
 async function openDailyChatScreen(dateIso){
   document.getElementById('dailyChatSheetTitle').textContent = '💬 '+niceDate(dateIso)+' 채팅';
+  var isToday = dateIso === todayStr();
+  var inputRow = document.getElementById('dailyChatInputRow');
+  var readOnlyNotice = document.getElementById('dailyChatReadOnlyNotice');
+  if(inputRow) inputRow.style.display = isToday ? 'flex' : 'none';
+  if(readOnlyNotice) readOnlyNotice.style.display = isToday ? 'none' : 'block';
+
   openSheet('dailyChatSheet');
   await renderDailyChatMessages(dateIso);
 
-  document.getElementById('dailyChatSendBtn').onclick = function(){ sendDailyChatMessage(dateIso); };
-  document.getElementById('dailyChatInput').onkeydown = function(ev){
-    if(ev.key === 'Enter'){ ev.preventDefault(); sendDailyChatMessage(dateIso); }
-  };
+  if(isToday){
+    document.getElementById('dailyChatSendBtn').onclick = function(){ sendDailyChatMessage(dateIso); };
+    document.getElementById('dailyChatInput').onkeydown = function(ev){
+      if(ev.key === 'Enter'){ ev.preventDefault(); sendDailyChatMessage(dateIso); }
+    };
+  }
 
   if(dailyChatPollTimer) clearInterval(dailyChatPollTimer);
   dailyChatPollTimer = setInterval(function(){
@@ -1616,23 +1636,37 @@ async function renderDailyChatMessages(dateIso){
   var msgs = await loadDailyChats(currentMember.group_id, dateIso);
   var box = document.getElementById('dailyChatMessages');
   if(msgs.length === 0){
-    box.innerHTML = '<p class="empty-inline" style="padding:20px 0;">아직 메시지가 없어요. 첫 메시지를 남겨보세요!</p>';
+    box.innerHTML = '<p class="empty-inline" style="padding:20px 0;">아직 메시지가 없어요.'+(dateIso===todayStr()?' 첫 메시지를 남겨보세요!':'')+'</p>';
   }else{
+    var canModerate = isAdminRole(currentMember.role);
     var html = '';
     msgs.forEach(function(m){
       var mine = m.member_id === currentMember.id;
+      var canDelete = mine || canModerate;
       var sender = members.find(function(mm){ return mm.id === m.member_id; });
       var senderName = sender ? sender.name : '알 수 없음';
       var timeLabel = new Date(m.created_at).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
       html += '<div style="display:flex;flex-direction:column;align-items:'+(mine?'flex-end':'flex-start')+';margin-bottom:10px;">';
       if(!mine) html += '<span class="savehint" style="margin-bottom:2px;">'+escapeHtml(senderName)+'</span>';
       html += '<div style="display:flex;align-items:flex-end;gap:6px;'+(mine?'flex-direction:row-reverse;':'')+'">';
-      html += '<div style="max-width:75%;padding:9px 12px;border-radius:14px;background:'+(mine?'var(--pine)':'var(--paper-raised)')+';color:'+(mine?'#fff':'var(--ink)')+';border:'+(mine?'none':'1px solid var(--line)')+';word-break:break-word;">'+escapeHtml(m.message)+'</div>';
+      html += '<div style="max-width:70%;padding:9px 12px;border-radius:14px;background:'+(mine?'var(--pine)':'var(--paper-raised)')+';color:'+(mine?'#fff':'var(--ink)')+';border:'+(mine?'none':'1px solid var(--line)')+';word-break:break-word;">'+escapeHtml(m.message)+'</div>';
+      html += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">';
       html += '<span class="savehint" style="font-size:0.625rem;white-space:nowrap;">'+timeLabel+'</span>';
+      if(canDelete) html += '<button type="button" data-chat-del="'+m.id+'" style="background:none;border:none;color:var(--ink-faint);font-size:0.6875rem;cursor:pointer;padding:0;">삭제</button>';
+      html += '</div>';
       html += '</div></div>';
     });
     box.innerHTML = html;
     box.scrollTop = box.scrollHeight;
+    box.querySelectorAll('[data-chat-del]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        if(!confirm('이 메시지를 삭제할까요?')) return;
+        var res = await supabaseClient.from('sg_daily_chats').delete().eq('id', btn.getAttribute('data-chat-del'));
+        if(res.error){ showToast('삭제 실패: '+res.error.message); return; }
+        await renderDailyChatMessages(dateIso);
+        renderCalendarTab();
+      });
+    });
   }
 }
 
@@ -1646,6 +1680,7 @@ async function sendDailyChatMessage(dateIso){
   if(res.error){ showToast('전송 실패: '+res.error.message); return; }
   input.value = '';
   await renderDailyChatMessages(dateIso);
+  renderCalendarTab();
 }
 
 async function openDailyReadingForDate(dateIso){
@@ -2388,6 +2423,11 @@ async function renderCalendarTab(){
     progress.forEach(function(p){ if(p.completed) completedReadingDates[p.date] = true; });
   }
 
+  var calMonthStart = calYear+'-'+String(calMonth).padStart(2,'0')+'-01';
+  var calMonthLastDay = new Date(calYear, calMonth, 0).getDate();
+  var calMonthEnd = calYear+'-'+String(calMonth).padStart(2,'0')+'-'+String(calMonthLastDay).padStart(2,'0');
+  var chatDatesInMonth = await loadChatDatesInRange(currentMember.group_id, calMonthStart, calMonthEnd);
+
   var html = '<div class="screen">';
 
   var todayMD = todayStr().slice(5);
@@ -2492,6 +2532,7 @@ async function renderCalendarTab(){
     html += d;
     if(hasPrayer) html += '<span class="prayer-ico">✝️</span>';
     if(completedReadingDates[iso]) html += '<span class="reading-done-ico">📖</span>';
+    if(chatDatesInMonth[iso]) html += '<span class="chat-ico">💬</span>';
     html += '</div>';
   }
   html += '</div></div>';
@@ -2527,6 +2568,11 @@ async function renderCalendarTab(){
     photoCarouselEl.addEventListener('scroll', function(){
       var idx = Math.round(photoCarouselEl.scrollLeft / photoCarouselEl.clientWidth);
       photoDots.forEach(function(d,i){ d.classList.toggle('active', i === idx); });
+    });
+    photoDots.forEach(function(d, i){
+      d.addEventListener('click', function(){
+        photoCarouselEl.scrollTo({ left: i * photoCarouselEl.clientWidth, behavior: 'smooth' });
+      });
     });
   }
   el.querySelectorAll('.cal-cell[data-date]').forEach(function(cell){
@@ -2640,7 +2686,7 @@ function openActivityForm(existing, dateIso, readOnly){
     var prayerAnnounceSection = document.getElementById('act_prayerAnnounceSection');
     [locSection, receiptSection, attSection].forEach(function(sec){
       if(!sec) return;
-      sec.style.opacity = isPrayer ? '0.4' : '1';
+      sec.style.display = isPrayer ? 'none' : '';
       sec.querySelectorAll('input, button, textarea').forEach(function(el2){
         if(el2.id === 'act_type') return;
         el2.disabled = isPrayer;
