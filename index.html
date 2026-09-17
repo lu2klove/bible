@@ -67,12 +67,18 @@
     background:var(--paper-raised); color:var(--ink);
   }
   .app{max-width:520px; margin:0 auto; min-height:100vh; background:var(--paper); position:relative;}
-  @media (min-width:900px){
+  @media (min-width:640px){
     body{ background:var(--line); }
-    .app{ max-width:640px; box-shadow:0 0 0 1px var(--line), 0 12px 40px rgba(0,0,0,0.12); }
+    .app{ max-width:600px; box-shadow:0 0 0 1px var(--line), 0 12px 40px rgba(0,0,0,0.12); }
+  }
+  @media (min-width:900px){
+    .app{ max-width:760px; }
   }
   @media (min-width:1200px){
-    .app{ max-width:760px; }
+    .app{ max-width:960px; }
+  }
+  @media (min-width:1600px){
+    .app{ max-width:1100px; }
   }
   .screen{padding:16px; padding-bottom:90px;}
   .header{
@@ -276,7 +282,7 @@
 <div class="sheet" id="dailyChatSheet">
   <div class="sheet-head">
     <span class="sheet-title" id="dailyChatSheetTitle">💬 오늘의 채팅</span>
-    <button class="sheet-close" type="button" onclick="closeSheet('dailyChatSheet')">✕</button>
+    <button class="sheet-close" type="button" onclick="closeDailyChatSheet()">✕</button>
   </div>
   <div id="dailyChatMessages" style="max-height:50vh;overflow-y:auto;margin-bottom:10px;"></div>
   <div style="display:flex;gap:8px;">
@@ -538,6 +544,65 @@ function imagePreviewHTML(prefix, dataUrl){
   }
   return '<button type="button" class="chip" id="'+prefix+'_addBtn">📷 사진 추가</button>';
 }
+function multiImageGalleryHTML(prefix, images, maxCount){
+  var html = '';
+  images.forEach(function(img, idx){
+    html += '<div style="position:relative;display:inline-block;">'+
+      '<img src="'+img+'" data-viewidx="'+idx+'" style="width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;display:block;">'+
+      '<button type="button" data-removeidx="'+idx+'" style="position:absolute;top:-6px;right:-6px;background:var(--brick);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:0.75rem;cursor:pointer;line-height:1;">✕</button>'+
+      '</div>';
+  });
+  if(images.length < maxCount){
+    html += '<button type="button" id="'+prefix+'_addBtn" class="chip" style="width:76px;height:76px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;">📷<span style="font-size:0.625rem;">추가</span></button>';
+  }
+  return html;
+}
+function wireMultiImageField(prefix, getArray, setArray, inputId, maxCount, compressOpts){
+  function refresh(){
+    document.getElementById(prefix+'Gallery').innerHTML = multiImageGalleryHTML(prefix, getArray(), maxCount);
+    wire();
+  }
+  function wire(){
+    var addBtn = document.getElementById(prefix+'_addBtn');
+    if(addBtn) addBtn.addEventListener('click', function(){ document.getElementById(inputId).click(); });
+    document.querySelectorAll('#'+prefix+'Gallery [data-removeidx]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var idx = parseInt(btn.getAttribute('data-removeidx'), 10);
+        var arr = getArray().slice();
+        arr.splice(idx, 1);
+        setArray(arr);
+        refresh();
+      });
+    });
+    document.querySelectorAll('#'+prefix+'Gallery [data-viewidx]').forEach(function(imgEl){
+      imgEl.addEventListener('click', function(){
+        var idx = parseInt(imgEl.getAttribute('data-viewidx'), 10);
+        openImageViewer(getArray()[idx]);
+      });
+    });
+  }
+  wire();
+  document.getElementById(inputId).addEventListener('change', function(ev){
+    var files = Array.prototype.slice.call(ev.target.files || []);
+    if(files.length === 0) return;
+    var arr = getArray().slice();
+    var available = maxCount - arr.length;
+    var toProcess = files.slice(0, available);
+    if(files.length > available){
+      showToast(maxCount+'장까지만 등록 가능합니다.');
+    }
+    if(toProcess.length === 0){ ev.target.value = ''; return; }
+    var remaining = toProcess.length;
+    toProcess.forEach(function(file){
+      compressImageToDataURL(file, function(dataUrl){
+        arr.push(dataUrl);
+        remaining--;
+        if(remaining === 0){ setArray(arr); refresh(); }
+      }, compressOpts && compressOpts.maxWidth, compressOpts && compressOpts.quality);
+    });
+    ev.target.value = '';
+  });
+}
 function wireImageFieldGlobal(prefix, getCurrent, setCurrent, inputId, compressOpts){
   function refresh(){
     document.getElementById(prefix+'Preview').innerHTML = imagePreviewHTML(prefix, getCurrent());
@@ -574,7 +639,8 @@ function openSheet(id){
 }
 function closeSheet(id){
   document.getElementById(id).classList.remove('open');
-  document.getElementById('sheetBackdrop').classList.remove('open');
+  var anyOtherOpen = Array.prototype.some.call(document.querySelectorAll('.sheet'), function(s){ return s.classList.contains('open'); });
+  if(!anyOtherOpen) document.getElementById('sheetBackdrop').classList.remove('open');
 }
 function niceDate(dateStr){
   var d = new Date(dateStr+'T00:00:00');
@@ -759,6 +825,7 @@ function renderMainApp(){
   app.innerHTML = html;
 
   document.getElementById('logoutBtn').addEventListener('click', function(){
+    if(dailyChatPollTimer){ clearInterval(dailyChatPollTimer); dailyChatPollTimer = null; }
     clearSession();
     currentMember = null;
     renderLoginScreen();
@@ -1479,6 +1546,7 @@ async function loadDailyChats(groupId, dateIso){
   }catch(err){ console.error('loadDailyChats error:', err); return []; }
 }
 
+var dailyChatPollTimer = null;
 async function openDailyChatScreen(dateIso){
   document.getElementById('dailyChatSheetTitle').textContent = '💬 '+niceDate(dateIso)+' 채팅';
   openSheet('dailyChatSheet');
@@ -1488,6 +1556,15 @@ async function openDailyChatScreen(dateIso){
   document.getElementById('dailyChatInput').onkeydown = function(ev){
     if(ev.key === 'Enter'){ ev.preventDefault(); sendDailyChatMessage(dateIso); }
   };
+
+  if(dailyChatPollTimer) clearInterval(dailyChatPollTimer);
+  dailyChatPollTimer = setInterval(function(){
+    renderDailyChatMessages(dateIso);
+  }, 3000);
+}
+function closeDailyChatSheet(){
+  if(dailyChatPollTimer){ clearInterval(dailyChatPollTimer); dailyChatPollTimer = null; }
+  closeSheet('dailyChatSheet');
 }
 
 async function renderDailyChatMessages(dateIso){
@@ -2446,18 +2523,15 @@ function openActivityForm(existing, dateIso, readOnly){
 
   html += '<div id="act_receiptSection">';
   html += '<div class="field"><span class="field-label">영수증 사진 (선택, 최대 2장)</span>';
-  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-  html += '<div><input type="file" accept="image/*" id="act_receiptInput" style="display:none;"><div id="act_receiptPreview">'+imagePreviewHTML('act_receipt', e.receipt_image)+'</div></div>';
-  html += '<div><input type="file" accept="image/*" id="act_receipt2Input" style="display:none;"><div id="act_receipt2Preview">'+imagePreviewHTML('act_receipt2', e.receipt_image2)+'</div></div>';
-  html += '</div></div>';
+  html += '<input type="file" accept="image/*" multiple id="act_receiptMultiInput" style="display:none;">';
+  html += '<div id="act_receiptGallery" style="display:flex;gap:8px;flex-wrap:wrap;">'+multiImageGalleryHTML('act_receipt', [e.receipt_image, e.receipt_image2].filter(Boolean), 2)+'</div>';
+  html += '</div>';
   html += '</div>';
 
   html += '<div class="field"><span class="field-label">활동 사진 (선택, 최대 3장)</span>';
-  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-  html += '<div><input type="file" accept="image/*" id="act_photoInput" style="display:none;"><div id="act_photoPreview">'+imagePreviewHTML('act_photo', e.photo_image)+'</div></div>';
-  html += '<div><input type="file" accept="image/*" id="act_photo2Input" style="display:none;"><div id="act_photo2Preview">'+imagePreviewHTML('act_photo2', e.photo_image2)+'</div></div>';
-  html += '<div><input type="file" accept="image/*" id="act_photo3Input" style="display:none;"><div id="act_photo3Preview">'+imagePreviewHTML('act_photo3', e.photo_image3)+'</div></div>';
-  html += '</div></div>';
+  html += '<input type="file" accept="image/*" multiple id="act_photoMultiInput" style="display:none;">';
+  html += '<div id="act_photoGallery" style="display:flex;gap:8px;flex-wrap:wrap;">'+multiImageGalleryHTML('act_photo', [e.photo_image, e.photo_image2, e.photo_image3].filter(Boolean), 3)+'</div>';
+  html += '</div>';
 
   html += '<hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">';
 
@@ -2536,11 +2610,8 @@ function openActivityForm(existing, dateIso, readOnly){
     });
   });
 
-  var currentReceiptImage = e.receipt_image || null;
-  var currentReceiptImage2 = e.receipt_image2 || null;
-  var currentPhotoImage = e.photo_image || null;
-  var currentPhotoImage2 = e.photo_image2 || null;
-  var currentPhotoImage3 = e.photo_image3 || null;
+  var currentReceiptImages = [e.receipt_image, e.receipt_image2].filter(Boolean);
+  var currentPhotoImages = [e.photo_image, e.photo_image2, e.photo_image3].filter(Boolean);
   var currentLat = e.location_lat != null ? e.location_lat : null;
   var currentLng = e.location_lng != null ? e.location_lng : null;
 
@@ -2564,11 +2635,8 @@ function openActivityForm(existing, dateIso, readOnly){
       compressImageToDataURL(file, function(dataUrl){ setCurrent(dataUrl); refresh(); });
     });
   }
-  wireImageField('act_receipt', function(){ return currentReceiptImage; }, function(v){ currentReceiptImage = v; }, 'act_receiptInput');
-  wireImageField('act_receipt2', function(){ return currentReceiptImage2; }, function(v){ currentReceiptImage2 = v; }, 'act_receipt2Input');
-  wireImageField('act_photo', function(){ return currentPhotoImage; }, function(v){ currentPhotoImage = v; }, 'act_photoInput');
-  wireImageField('act_photo2', function(){ return currentPhotoImage2; }, function(v){ currentPhotoImage2 = v; }, 'act_photo2Input');
-  wireImageField('act_photo3', function(){ return currentPhotoImage3; }, function(v){ currentPhotoImage3 = v; }, 'act_photo3Input');
+  wireMultiImageField('act_receipt', function(){ return currentReceiptImages; }, function(v){ currentReceiptImages = v; }, 'act_receiptMultiInput', 2);
+  wireMultiImageField('act_photo', function(){ return currentPhotoImages; }, function(v){ currentPhotoImages = v; }, 'act_photoMultiInput', 3);
 
   document.getElementById('act_gpsBtn').addEventListener('click', function(){
     var statusEl = document.getElementById('act_gpsStatus');
@@ -2616,8 +2684,8 @@ function openActivityForm(existing, dateIso, readOnly){
       activity_type: (typeSelect && typeSelect.value) ? typeSelect.value : null,
       location_name: document.getElementById('act_locationName').value.trim() || null,
       location_lat: currentLat, location_lng: currentLng,
-      receipt_image: currentReceiptImage, receipt_image2: currentReceiptImage2,
-      photo_image: currentPhotoImage, photo_image2: currentPhotoImage2, photo_image3: currentPhotoImage3
+      receipt_image: currentReceiptImages[0]||null, receipt_image2: currentReceiptImages[1]||null,
+      photo_image: currentPhotoImages[0]||null, photo_image2: currentPhotoImages[1]||null, photo_image3: currentPhotoImages[2]||null
     };
     if(!existing) payload.created_by = currentMember.id;
     var res = existing
@@ -2718,6 +2786,7 @@ async function openDateMenu(dateIso){
     openDailyReadingForDate(dateIso);
   });
   document.getElementById('dm_chatBtn').addEventListener('click', function(){
+    closeSheet('genericSheet');
     openDailyChatScreen(dateIso);
   });
   document.getElementById('dm_addActivityBtn').addEventListener('click', function(){
