@@ -232,9 +232,9 @@
   .editorial-panel-row{display:flex; gap:10px; margin-bottom:14px; align-items:stretch;}
   .editorial-card{
     flex:1; min-width:0; height:100%; background:#FFFFFF; border-radius:18px; overflow:hidden;
-    box-shadow:0 2px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column;
+    box-shadow:0 3px 14px rgba(0,0,0,0.14); display:flex; flex-direction:column;
     scroll-snap-align:center; text-decoration:none; color:inherit;
-    border:none; outline:none; -webkit-appearance:none; appearance:none;
+    border:1px solid rgba(0,0,0,0.06); outline:none; -webkit-appearance:none; appearance:none;
     font:inherit; padding:0; margin:0; -webkit-tap-highlight-color:transparent;
   }
   .editorial-card:focus{ outline:none; }
@@ -253,6 +253,7 @@
   .editorial-cta{
     margin-top:6px; padding:7px 14px; border-radius:999px; border:1px solid #D8D5E3;
     font-size:0.6875rem; font-weight:700; color:#1C1A24; background:#fff; cursor:pointer;
+    -webkit-appearance:none; appearance:none; font-family:inherit; outline:none;
   }
   .editorial-carousel{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:0; scrollbar-width:none; flex:1;}
   .editorial-carousel::-webkit-scrollbar{display:none;}
@@ -267,7 +268,7 @@
   .color-swatch-round::-webkit-color-swatch-wrapper{padding:0; border-radius:50%;}
   .color-swatch-round::-webkit-color-swatch{border:none; border-radius:50%;}
   .color-swatch-round::-moz-color-swatch{border:none; border-radius:50%;}
-  .ig-calendar-card{background:#FFFFFF; border:none; border-radius:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
+  .ig-calendar-card{background:#FFFFFF; border:1px solid rgba(0,0,0,0.06); border-radius:18px; box-shadow:0 3px 14px rgba(0,0,0,0.14);}
 </style>
 </head>
 <body>
@@ -1117,19 +1118,6 @@ async function renderMembersTab(){
 
   html += '<div class="card" style="text-align:center;">';
   var isPrayerStat = memberStatActivityType === '기도요청';
-  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 '+(isPrayerStat?'기도요청 등록 현황':'출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):''))+'</p>';
-  var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
-  var totalPresentAll = donutData.reduce(function(s,d){ return s+d.value; }, 0);
-  html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(donutData, 150, 0.62)+
-    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
-    '<p style="font-size:1.25rem;font-weight:800;">'+totalPresentAll+'</p><p class="savehint">'+(isPrayerStat?'총 등록':'총 출석')+'</p></div></div>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
-  donutData.forEach(function(d){
-    if(d.value<=0) return;
-    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+(isPrayerStat?'건':'회')+'</span>';
-  });
-  html += '</div></div>';
-
   if(isPrayerStat){
     var prayerActsInRange = activities.filter(function(a){
       if(a.activity_type !== '기도요청') return false;
@@ -1137,8 +1125,7 @@ async function renderMembersTab(){
     });
     var answeredCount2 = prayerActsInRange.filter(function(a){ return a.prayer_answered; }).length;
     var unansweredCount2 = prayerActsInRange.length - answeredCount2;
-    html += '<div class="card" style="text-align:center;">';
-    html += '<p class="field-label-strong" style="margin-bottom:10px;">🙏 기도응답 현황</p>';
+    html += '<p class="field-label-strong" style="margin-bottom:10px;">🙏 기도요청 등록·응답 현황</p>';
     var answerDonutData = [
       { label:'응답됨', value:answeredCount2, color:'var(--pine)' },
       { label:'미응답', value:unansweredCount2, color:'var(--line)' }
@@ -1149,8 +1136,38 @@ async function renderMembersTab(){
     html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
     html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pine);margin-right:4px;"></span>응답됨 '+answeredCount2+'건</span>';
     html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--line);margin-right:4px;"></span>미응답 '+unansweredCount2+'건</span>';
-    html += '</div></div>';
+    html += '</div>';
+    var byMember = {};
+    members.forEach(function(m){ byMember[m.id] = { total:0, answered:0 }; });
+    prayerActsInRange.forEach(function(a){
+      if(!a.created_by || !byMember[a.created_by]) return;
+      byMember[a.created_by].total++;
+      if(a.prayer_answered) byMember[a.created_by].answered++;
+    });
+    var memberRows = members.filter(function(m){ return byMember[m.id].total > 0; });
+    if(memberRows.length > 0){
+      html += '<div style="text-align:left;margin-top:14px;border-top:1px solid var(--line);padding-top:10px;">';
+      memberRows.forEach(function(m){
+        var mb = byMember[m.id];
+        html += '<div class="member-row"><span>'+escapeHtml(m.name)+'</span><span class="savehint">총 '+mb.total+'건 · 응답 '+mb.answered+' · 미응답 '+(mb.total-mb.answered)+'</span></div>';
+      });
+      html += '</div>';
+    }
+  }else{
+  html += '<p class="field-label-strong" style="margin-bottom:10px;">📊 출석 현황'+(memberStatActivityType!=='all'?' · '+escapeHtml(memberStatActivityType):'')+'</p>';
+  var donutData = members.map(function(m,i){ return { label:m.name, value:(stats[m.id]?stats[m.id].present:0), color:DONUT_COLORS[i%DONUT_COLORS.length] }; });
+  var totalPresentAll = donutData.reduce(function(s,d){ return s+d.value; }, 0);
+  html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(donutData, 150, 0.62)+
+    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
+    '<p style="font-size:1.25rem;font-weight:800;">'+totalPresentAll+'</p><p class="savehint">총 출석</p></div></div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
+  donutData.forEach(function(d){
+    if(d.value<=0) return;
+    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+'회</span>';
+  });
+  html += '</div>';
   }
+  html += '</div>';
 
   if(readingRanking.length > 0){
     html += '<div class="card">';
@@ -2413,6 +2430,7 @@ function openPrayerAnswerScreen(){
       if(act) act.prayer_answered = cb.checked;
       showToast(cb.checked ? '기도응답으로 표시했어요.' : '표시를 해제했어요.');
       openPrayerAnswerScreen();
+      if(activeTab === 'members') renderMembersTab();
     });
   });
   document.querySelectorAll('[data-prayer-savenote]').forEach(function(btn){
@@ -2538,13 +2556,13 @@ async function renderCalendarTab(){
   }else{
     html += '<div class="editorial-carousel" id="cal_photoCarousel">';
     recentPhotoActivities.forEach(function(a){
-      html += '<button type="button" class="editorial-card" data-recent-photo-open="'+a.id+'" style="border:none;">';
+      html += '<div class="editorial-card">';
       html += '<div class="editorial-badge">📷 RECENT MOMENT</div>';
-      html += '<div class="editorial-image-wrap"><img src="'+a.photo_image+'"></div>';
+      html += '<div class="editorial-image-wrap" data-photo-view="'+a.photo_image+'" style="cursor:zoom-in;"><img src="'+a.photo_image+'"></div>';
       html += '<div class="editorial-body">';
       html += '<p class="editorial-title">'+escapeHtml(a.title)+' <span class="editorial-title-meta">· '+shortDateLabel(a.date)+'</span></p>';
-      html += '<span class="editorial-cta">자세히 보기 →</span>';
-      html += '</div></button>';
+      html += '<button type="button" class="editorial-cta" data-recent-photo-open="'+a.id+'">자세히 보기 →</button>';
+      html += '</div></div>';
     });
     html += '</div>';
     if(recentPhotoActivities.length > 1){
@@ -2649,6 +2667,11 @@ async function renderCalendarTab(){
       if(!act) return;
       var readOnly = currentMember.role === 'member' && act.created_by !== currentMember.id;
       openActivityForm(act, act.date, readOnly);
+    });
+  });
+  el.querySelectorAll('[data-photo-view]').forEach(function(imgWrap){
+    imgWrap.addEventListener('click', function(){
+      openImageViewer(imgWrap.getAttribute('data-photo-view'));
     });
   });
   var photoCarouselEl = document.getElementById('cal_photoCarousel');
