@@ -49,6 +49,21 @@
     --ink-soft:#B8BCAF; --ink-faint:#7C8172; --line:#454B3C; --pine:#7FAE9B; --pine-soft:#33473E;
     --brick-soft:#4A2E27; --amber-soft:#4A3D22;
   }
+  body.theme-light{
+    --paper:#FFFFFF; --paper-raised:#FAFAFA; --ink:#1A1A1A;
+    --ink-soft:#5A5A5A; --ink-faint:#9A9A9A; --line:#E2E2E2; --pine:#3F6357; --pine-soft:#E3EDE9;
+  }
+  body.theme-auto{
+    --paper:#FFFFFF; --paper-raised:#FAFAFA; --ink:#1A1A1A;
+    --ink-soft:#5A5A5A; --ink-faint:#9A9A9A; --line:#E2E2E2; --pine:#3F6357; --pine-soft:#E3EDE9;
+  }
+  @media (prefers-color-scheme: dark){
+    body.theme-auto{
+      --paper:#20241D; --paper-raised:#2B3025; --ink:#ECEAE0;
+      --ink-soft:#B8BCAF; --ink-faint:#7C8172; --line:#454B3C; --pine:#7FAE9B; --pine-soft:#33473E;
+      --brick-soft:#4A2E27; --amber-soft:#4A3D22;
+    }
+  }
   body.font-gothic{ --font-heading:'IBM Plex Sans KR','Noto Sans KR',sans-serif; --font-body:'IBM Plex Sans KR','Noto Sans KR',sans-serif; }
   body.font-serif{ --font-heading:'Noto Serif KR',serif; --font-body:'Noto Serif KR',serif; }
   html{ font-size:calc(16px * var(--font-scale)); }
@@ -122,8 +137,10 @@
     position:fixed; bottom:0; left:0; right:0; max-width:520px; margin:0 auto;
     display:flex; border-top:1px solid var(--line); background:var(--paper-raised); z-index:30;
   }
-  @media (min-width:900px){ .tabbar{ max-width:640px; } }
-  @media (min-width:1200px){ .tabbar{ max-width:760px; } }
+  @media (min-width:640px){ .tabbar{ max-width:600px; } }
+  @media (min-width:900px){ .tabbar{ max-width:760px; } }
+  @media (min-width:1200px){ .tabbar{ max-width:960px; } }
+  @media (min-width:1600px){ .tabbar{ max-width:1100px; } }
   .tabbar button{
     flex:1; background:none; border:none; padding:11px 4px 9px; display:flex; flex-direction:column;
     align-items:center; gap:2px; color:var(--ink-faint); font-size:0.6875rem; font-weight:600; cursor:pointer;
@@ -161,8 +178,11 @@
   .cal-dow{font-size:0.6875rem; color:var(--ink-faint); padding:6px 0; font-weight:700;}
   .cal-cell{
     aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    border-radius:8px; cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
+    border-radius:50%; cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
+    background:#fff;
   }
+  body.theme-dark .cal-cell{ background:var(--paper-raised); }
+  @media (prefers-color-scheme: dark){ body.theme-auto .cal-cell{ background:var(--paper-raised); } }
   .cal-cell.today{background:var(--pine); color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(63,99,87,0.35); border-radius:50%;}
   .cal-cell.today.sunday, .cal-cell.today.saturday, .cal-cell.today.holiday{color:#fff;}
   .cal-cell.has-activity::after{
@@ -183,7 +203,7 @@
   .reading-carousel::-webkit-scrollbar{display:none;}
   .reading-panel{flex:0 0 100%; scroll-snap-align:center; padding:0 14px; box-sizing:border-box;}
   .carousel-dots{display:flex; justify-content:center; gap:6px; margin-top:10px;}
-  .carousel-dots .dot{width:6px; height:6px; border-radius:50%; background:var(--line); transition:background 0.2s;}
+  .carousel-dots .dot{width:6px; height:6px; border-radius:50%; background:var(--line); transition:background 0.2s; cursor:pointer;}
   .carousel-dots .dot.active{background:var(--pine);}
   .stat-mini-card{background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:10px 6px; text-align:center; flex:1;}
   .stat-mini-card .stat-label{font-size:0.6875rem; color:var(--ink-faint); font-weight:600;}
@@ -757,7 +777,7 @@ async function loadSystemSettings(){
 }
 function applyAppearance(group){
   var body = document.body;
-  body.classList.remove('theme-blue','theme-rose','theme-dark','font-gothic','font-serif');
+  body.classList.remove('theme-blue','theme-rose','theme-dark','theme-light','theme-auto','font-gothic','font-serif');
   if(group){
     if(group.theme && group.theme !== 'default') body.classList.add('theme-'+group.theme);
     if(group.font_family && group.font_family !== 'default') body.classList.add('font-'+(group.font_family==='gothic'?'gothic':'serif'));
@@ -1335,16 +1355,23 @@ async function renderMyTab(){
 
     html += '<div class="reading-carousel" id="readingCarousel">';
 
-    html += '<div class="reading-panel"><div style="display:flex;gap:8px;">';
+    html += '<div class="reading-panel"><div style="display:flex;gap:8px;align-items:stretch;">';
     html += '<div class="stat-mini-card"><p class="stat-label">진행중</p><p class="stat-value">'+daysElapsed+'</p><p class="stat-sub">일차 / '+totalDays+'일</p></div>';
-    html += '<div class="stat-mini-card"><p class="stat-label">읽은 날</p><p class="stat-value" style="color:'+(diff>0?'var(--amber)':'var(--pine)')+';">'+completedCount+'</p><p class="stat-sub">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행')) +'</p></div>';
+    var gaugePct = totalDays > 0 ? Math.min(1, completedCount/totalDays) : 0;
+    var gaugeColor = diff>0 ? 'var(--amber)' : 'var(--pine)';
+    html += '<div class="stat-mini-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">';
+    html += '<div style="position:relative;width:72px;height:72px;">'+renderDonutSVG([{value:gaugePct,color:gaugeColor},{value:1-gaugePct,color:'var(--line)'}], 72, 0.72)+
+      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
+      '<p style="font-size:1.0625rem;font-weight:800;line-height:1.1;">'+completedCount+'</p><p style="font-size:0.5625rem;color:var(--ink-faint);">일 읽음</p></div></div>';
+    html += '<p class="stat-sub" style="margin-top:4px;color:'+gaugeColor+';">'+(diff>0?diff+'일 느림':(diff<0?(-diff)+'일 빠름':'정상 진행'))+'</p>';
+    html += '</div>';
     html += '<div class="stat-mini-card"><p class="stat-label">📅 예상완독일</p><p class="stat-value" style="font-size:0.9375rem;">'+expectedCompletionText+'</p></div>';
     html += '</div></div>';
 
     html += '<div class="reading-panel">';
     html += '<div style="margin:8px 0 6px;position:relative;height:26px;">';
     html += '<div class="progress-bar-bg" style="position:absolute;top:9px;left:0;right:0;"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>';
-    html += '<span style="position:absolute;top:0;left:calc('+pct+'% - 11px);font-size:1.25rem;transition:left 0.3s;">🚴</span>';
+    html += '<span style="position:absolute;top:0;left:calc('+pct+'% - 11px);font-size:1.25rem;transition:left 0.3s;display:inline-block;transform:scaleX(-1);">🚴</span>';
     html += '</div>';
     html += '<p class="savehint" style="text-align:center;"><b style="color:var(--amber);">나 '+completedCount+'일</b> / 오늘 '+daysElapsed+'일차</p>';
     html += '<p class="savehint" style="text-align:center;">목표기간 : '+plan.start_date+' ~ '+plan.end_date+'</p>';
@@ -1447,6 +1474,12 @@ async function renderMyTab(){
     carouselEl.addEventListener('scroll', function(){
       var idx = Math.round(carouselEl.scrollLeft / carouselEl.clientWidth);
       dots.forEach(function(d, i){ d.classList.toggle('active', i === idx); });
+    });
+    dots.forEach(function(d){
+      d.addEventListener('click', function(){
+        var idx = parseInt(d.getAttribute('data-dot'), 10);
+        carouselEl.scrollTo({ left: idx * carouselEl.clientWidth, behavior: 'smooth' });
+      });
     });
   }
 }
@@ -1771,7 +1804,7 @@ async function renderSettingsTab(){
     html += '<div style="margin-bottom:8px;"><h2 style="font-size:1rem;">🌈 테마 설정</h2></div>';
     html += '<div class="card" style="margin-bottom:14px;">';
     html += '<div class="chiprow">';
-    [['default','기본(그린)'],['blue','블루'],['rose','로즈'],['dark','다크']].forEach(function(t){
+    [['default','기본(그린)'],['light','라이트'],['dark','다크'],['auto','자동'],['blue','블루'],['rose','로즈']].forEach(function(t){
       html += '<button type="button" class="chip'+((currentGroup.theme||'default')===t[0]?' selected':'')+'" data-theme-pick="'+t[0]+'">'+t[1]+'</button>';
     });
     html += '</div></div>';
@@ -2513,6 +2546,7 @@ function openActivityForm(existing, dateIso, readOnly){
   html += '<div class="field"><span class="field-label">메모</span><textarea id="act_memo" rows="2" placeholder="선택 입력">'+escapeHtml(e.memo||'')+'</textarea></div>';
   html += '<hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">';
 
+  if(!readOnly){
   html += '<div id="act_locationSection">';
   html += '<div class="field"><span class="field-label">장소</span>';
   html += '<div class="row2"><input type="text" id="act_locationName" placeholder="예: 은혜교회 3층 소모임실" value="'+escapeHtml(e.location_name||'')+'" style="flex:2;">';
@@ -2527,6 +2561,9 @@ function openActivityForm(existing, dateIso, readOnly){
   html += '<div id="act_receiptGallery" style="display:flex;gap:8px;flex-wrap:wrap;">'+multiImageGalleryHTML('act_receipt', [e.receipt_image, e.receipt_image2].filter(Boolean), 2)+'</div>';
   html += '</div>';
   html += '</div>';
+  }else if(e.location_name || e.location_lat){
+    html += '<p class="savehint" style="margin-bottom:12px;">📍 '+escapeHtml(e.location_name||'')+'</p>';
+  }
 
   html += '<div class="field"><span class="field-label">활동 사진 (선택, 최대 3장)</span>';
   html += '<input type="file" accept="image/*" multiple id="act_photoMultiInput" style="display:none;">';
@@ -2535,6 +2572,7 @@ function openActivityForm(existing, dateIso, readOnly){
 
   html += '<hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">';
 
+  if(!readOnly){
   html += '<div id="act_attendanceSection">';
   html += '<p class="field-label-strong" style="margin:0 0 8px;">출석 체크</p>';
   html += '<div class="card" id="act_attendanceList">';
@@ -2545,13 +2583,16 @@ function openActivityForm(existing, dateIso, readOnly){
   });
   html += '</div>';
   html += '</div>';
+  } // !readOnly 끝 (출석체크)
 
+  if(!readOnly){
   html += '<div id="act_prayerAnnounceSection" style="display:none;margin-top:12px;">';
   html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">';
   html += '<input type="checkbox" id="act_prayerAnnounceCheck"'+(e._prayerAnnounced?' checked':'')+'> <span class="savehint">공지에 등록해서 합심기도 하기</span>';
   html += '</label>';
   html += '<div style="margin-top:8px;"><span class="field-label">만료일(선택, 비워두면 활동 날짜에 만료)</span><input type="date" id="act_prayerAnnounceExpires"></div>';
   html += '</div>';
+  } // !readOnly 끝 (합심기도)
 
   html += '<div class="row2" style="margin-top:14px;">';
   html += '<button class="btn btn-block" id="act_cancelBtn" type="button">'+(readOnly?'닫기':'취소')+'</button>';
@@ -2635,9 +2676,12 @@ function openActivityForm(existing, dateIso, readOnly){
       compressImageToDataURL(file, function(dataUrl){ setCurrent(dataUrl); refresh(); });
     });
   }
+  if(!readOnly){
   wireMultiImageField('act_receipt', function(){ return currentReceiptImages; }, function(v){ currentReceiptImages = v; }, 'act_receiptMultiInput', 2);
+  }
   wireMultiImageField('act_photo', function(){ return currentPhotoImages; }, function(v){ currentPhotoImages = v; }, 'act_photoMultiInput', 3);
 
+  if(!readOnly){
   document.getElementById('act_gpsBtn').addEventListener('click', function(){
     var statusEl = document.getElementById('act_gpsStatus');
     if(!navigator.geolocation){ statusEl.textContent = '이 기기/브라우저는 위치 기능을 지원하지 않아요.'; return; }
@@ -2658,6 +2702,7 @@ function openActivityForm(existing, dateIso, readOnly){
       document.getElementById('act_gpsStatus').textContent = '지도에서 좌표를 담았어요('+lat.toFixed(4)+', '+lng.toFixed(4)+').';
     });
   });
+  }
 
   document.getElementById('act_cancelBtn').addEventListener('click', function(){ closeSheet('activitySheet'); });
   if(existing){
@@ -2671,6 +2716,7 @@ function openActivityForm(existing, dateIso, readOnly){
     });
   }
 
+  if(!readOnly){
   document.getElementById('act_saveBtn').addEventListener('click', async function(){
     var date = document.getElementById('act_date').value;
     var title = document.getElementById('act_title').value.trim();
@@ -2721,6 +2767,7 @@ function openActivityForm(existing, dateIso, readOnly){
     renderCalendarTab();
     showToast(existing ? '수정했어요.' : '등록했어요.');
   });
+  } // !readOnly 끝 (저장 버튼)
 }
 
 async function openDateMenu(dateIso){
