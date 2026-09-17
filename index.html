@@ -173,18 +173,22 @@
     background:var(--amber-soft); border:1px solid var(--amber); border-radius:14px;
     padding:10px 12px; margin-bottom:14px; font-size:0.8125rem; color:var(--ink);
     box-shadow:0 1px 3px rgba(0,0,0,0.04);
+    display:flex; align-items:center; gap:6px; cursor:pointer;
   }
+  .announce-bar-text{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
   .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;}
   .cal-dow{font-size:0.6875rem; color:var(--ink-faint); padding:6px 0; font-weight:700;}
   .cal-cell{
     aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    border-radius:50%; cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
-    background:#fff; border:1.5px solid var(--pine);
+    cursor:pointer; font-size:0.8125rem; position:relative; gap:2px;
   }
-  body.theme-dark .cal-cell{ background:var(--paper-raised); }
-  @media (prefers-color-scheme: dark){ body.theme-auto .cal-cell{ background:var(--paper-raised); } }
-  .cal-cell.today{background:var(--pine); color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(63,99,87,0.35); border-radius:50%; border:none;}
-  .cal-cell.today.sunday, .cal-cell.today.saturday, .cal-cell.today.holiday{color:#fff;}
+  .cal-daynum{
+    width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--line);
+  }
+  body.theme-dark .cal-daynum{ border-color:var(--line); }
+  .cal-cell.today .cal-daynum{background:var(--pine); color:#fff; font-weight:800; box-shadow:0 1px 4px rgba(63,99,87,0.35); border:none;}
+  .cal-cell.today.sunday .cal-daynum, .cal-cell.today.saturday .cal-daynum, .cal-cell.today.holiday .cal-daynum{color:#fff;}
   .cal-cell.has-activity::after{
     content:''; width:5px; height:5px; border-radius:50%; background:var(--brick); position:absolute; bottom:4px;
   }
@@ -230,7 +234,10 @@
     flex:1; min-width:0; height:100%; background:#FFFFFF; border-radius:18px; overflow:hidden;
     box-shadow:0 2px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column;
     scroll-snap-align:center; text-decoration:none; color:inherit;
+    border:none; outline:none; -webkit-appearance:none; appearance:none;
+    font:inherit; padding:0; margin:0; -webkit-tap-highlight-color:transparent;
   }
+  .editorial-card:focus{ outline:none; }
   .editorial-badge{
     display:flex; align-items:center; justify-content:center; gap:5px;
     padding:9px 6px; border-bottom:1px solid #EFEDF3; font-size:0.625rem; font-weight:800;
@@ -945,6 +952,7 @@ function computePrayerRequestStats(range){
 }
 
 var DONUT_COLORS = ['#3F6357','#A8452F','#B8791E','#2B6FCB','#8A7B4E','#6B4E8A','#4E8A7A','#C25B8A'];
+var CHAT_BUBBLE_SVG = '<svg width="1em" height="1em" viewBox="0 0 20 18" style="display:block;"><path d="M2 3.5C2 2.11929 3.11929 1 4.5 1H15.5C16.8807 1 18 2.11929 18 3.5V10.5C18 11.8807 16.8807 13 15.5 13H8.5L5 16.5V13H4.5C3.11929 13 2 11.8807 2 10.5V3.5Z" fill="var(--brick)"/></svg>';
 function clockPointOnCircle(cx, cy, r, clockDeg){
   var rad = (clockDeg - 90) * Math.PI / 180;
   return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
@@ -1081,7 +1089,9 @@ async function renderMembersTab(){
     html += '</div>';
   }
 
+  html += '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0 0;">';
   html += '<button class="btn btn-block" id="mem_prayerAnswerBtn" type="button" style="margin-top:14px;margin-bottom:20px;">🙏 기도응답 현황</button>';
+  html += '<hr style="border:none;border-top:1px solid var(--line);margin:0 0 16px;">';
 
   // ---- 이하 통계 섹션 ----
   html += '<div class="chiprow" id="mem_periodChips" style="margin-bottom:8px;">';
@@ -1119,6 +1129,28 @@ async function renderMembersTab(){
     html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+d.color+';margin-right:4px;"></span>'+escapeHtml(d.label)+' '+d.value+(isPrayerStat?'건':'회')+'</span>';
   });
   html += '</div></div>';
+
+  if(isPrayerStat){
+    var prayerActsInRange = activities.filter(function(a){
+      if(a.activity_type !== '기도요청') return false;
+      return !range || (a.date >= range.start && a.date <= range.end);
+    });
+    var answeredCount2 = prayerActsInRange.filter(function(a){ return a.prayer_answered; }).length;
+    var unansweredCount2 = prayerActsInRange.length - answeredCount2;
+    html += '<div class="card" style="text-align:center;">';
+    html += '<p class="field-label-strong" style="margin-bottom:10px;">🙏 기도응답 현황</p>';
+    var answerDonutData = [
+      { label:'응답됨', value:answeredCount2, color:'var(--pine)' },
+      { label:'미응답', value:unansweredCount2, color:'var(--line)' }
+    ];
+    html += '<div style="position:relative;display:inline-block;">'+renderDonutSVG(answerDonutData, 150, 0.62)+
+      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">'+
+      '<p style="font-size:1.25rem;font-weight:800;">'+prayerActsInRange.length+'</p><p class="savehint">전체 기도요청</p></div></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;">';
+    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pine);margin-right:4px;"></span>응답됨 '+answeredCount2+'건</span>';
+    html += '<span class="savehint"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--line);margin-right:4px;"></span>미응답 '+unansweredCount2+'건</span>';
+    html += '</div></div>';
+  }
 
   if(readingRanking.length > 0){
     html += '<div class="card">';
@@ -2423,6 +2455,15 @@ function openWorshipVideoForm(onSaved){
   });
 }
 
+function openAnnouncementViewSheet(a){
+  var html = '';
+  html += '<p style="white-space:pre-wrap;line-height:1.6;">'+escapeHtml(a.content)+'</p>';
+  if(a.expires_at) html += '<p class="savehint" style="margin-top:10px;">'+a.expires_at+'까지 표시돼요.</p>';
+  document.getElementById('genericSheetTitle').textContent = (a.pinned?'📌':'📢')+' 공지사항';
+  document.getElementById('genericSheetBody').innerHTML = html;
+  openSheet('genericSheet');
+}
+
 function openMonthPickerSheet(){
   var pickerYear = calYear;
   function render(){
@@ -2481,7 +2522,7 @@ async function renderCalendarTab(){
   if(announcements.length > 0){
     var sortedAnnouncements = announcements.slice().sort(function(a,b){ return (b.pinned?1:0) - (a.pinned?1:0); });
     sortedAnnouncements.slice(0,3).forEach(function(a){
-      html += '<div class="announce-bar">'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+'</div>';
+      html += '<div class="announce-bar" data-announce-view="'+a.id+'"><span>'+(a.pinned?'📌':'📢')+'</span><span class="announce-bar-text">'+escapeHtml(a.content)+'</span></div>';
     });
   }
 
@@ -2571,10 +2612,10 @@ async function renderCalendarTab(){
     else if(weekday===0) cls += ' sunday';
     else if(weekday===6) cls += ' saturday';
     html += '<div class="'+cls+'" data-date="'+iso+'"'+(holidayName?' title="'+escapeHtml(holidayName)+'"':'')+'>';
-    html += d;
+    html += '<span class="cal-daynum">'+d+'</span>';
     if(hasPrayer) html += '<span class="prayer-ico">✝️</span>';
     if(completedReadingDates[iso]) html += '<span class="reading-done-ico">📖</span>';
-    if(chatDatesInMonth[iso]) html += '<span class="chat-ico">💬</span>';
+    if(chatDatesInMonth[iso]) html += '<span class="chat-ico">'+CHAT_BUBBLE_SVG+'</span>';
     html += '</div>';
   }
   html += '</div></div>';
@@ -2596,6 +2637,12 @@ async function renderCalendarTab(){
     renderCalendarTab();
   });
   document.getElementById('cal_monthLabel').addEventListener('click', openMonthPickerSheet);
+  el.querySelectorAll('[data-announce-view]').forEach(function(bar){
+    bar.addEventListener('click', function(){
+      var a = announcements.find(function(x){ return x.id === bar.getAttribute('data-announce-view'); });
+      if(a) openAnnouncementViewSheet(a);
+    });
+  });
   el.querySelectorAll('[data-recent-photo-open]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var act = activities.find(function(x){ return x.id === btn.getAttribute('data-recent-photo-open'); });
