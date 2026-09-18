@@ -142,12 +142,16 @@
   @media (min-width:1200px){ .tabbar{ max-width:960px; } }
   @media (min-width:1600px){ .tabbar{ max-width:1100px; } }
   .tabbar button{
-    flex:1; background:none; border:none; padding:11px 4px 9px; display:flex; flex-direction:column;
-    align-items:center; justify-content:flex-start; gap:2px; color:var(--ink-faint); font-size:0.6875rem; font-weight:600; cursor:pointer;
+    flex:1; background:none; border:none; padding:13px 4px 11px; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-start; gap:2px; color:var(--ink-soft); font-size:0.6875rem; font-weight:600; cursor:pointer;
   }
   .tabbar button.active{color:var(--pine);}
-  .tabbar button .ico{font-size:1.1875rem; height:1.1875rem; display:flex; align-items:center; justify-content:center;}
-  .tabbar button .ico img{width:1.375rem; height:1.375rem; border-radius:50%; object-fit:cover; display:block;}
+  .tabbar button .ico{width:1.625rem; height:1.625rem; display:flex; align-items:center; justify-content:center;}
+  .tabbar button .ico svg{width:100%; height:100%;}
+  .tabbar button .ico-photo{border-radius:50%; overflow:hidden; border:1.5px solid var(--line);}
+  .tabbar button.active .ico-photo{border-color:var(--pine);}
+  .tabbar button .ico-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .tabbar button .ico-photo-fallback{width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:0.9375rem; background:var(--paper);}
   .overlay{
     position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:80; display:none;
   }
@@ -859,20 +863,19 @@ function renderMainApp(){
   }
   html += '<p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p>';
   html += '</div></div>';
-  html += '</div>';
   html += '<button class="btn" id="logoutBtn" type="button" style="padding:7px 12px;font-size:0.7812rem;">로그아웃</button>';
   html += '</div>';
   html += '<div id="tabContent"></div>';
   html += '<div class="tabbar">';
-  html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span></button>';
-  html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span></button>';
+  html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">'+TAB_CALENDAR_SVG+'</span></button>';
+  html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">'+TAB_PEOPLE_SVG+'</span></button>';
   html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my">'+
-    (currentMember.photo_image ? '<span class="ico"><img src="'+currentMember.photo_image+'"></span>' : '<span class="ico">🙋</span>')+
+    (currentMember.photo_image ? '<span class="ico ico-photo"><img src="'+currentMember.photo_image+'"></span>' : '<span class="ico ico-photo"><div class="ico-photo-fallback">👤</div></span>')+
     '</button>';
   var memberPerms = getPermissionSettings().member;
   var memberHasAnySettingAccess = memberPerms.activity_types || memberPerms.appearance || memberPerms.bible_settings || memberPerms.group_management;
   if(isAdminRole(currentMember.role) || memberHasAnySettingAccess){
-    html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">⚙️</span></button>';
+    html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">'+TAB_GEAR_SVG+'</span></button>';
   }
   html += '</div>';
 
@@ -982,6 +985,9 @@ function computePrayerRequestStats(range){
 
 var DONUT_COLORS = ['#3F6357','#A8452F','#B8791E','#2B6FCB','#8A7B4E','#6B4E8A','#4E8A7A','#C25B8A'];
 var CHAT_BUBBLE_SVG = '<svg width="1em" height="1em" viewBox="0 0 20 18" style="display:block;"><path d="M2 3.5C2 2.11929 3.11929 1 4.5 1H15.5C16.8807 1 18 2.11929 18 3.5V10.5C18 11.8807 16.8807 13 15.5 13H8.5L5 16.5V13H4.5C3.11929 13 2 11.8807 2 10.5V3.5Z" fill="var(--brick)"/></svg>';
+var TAB_CALENDAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.2"/><line x1="3.5" y1="9.8" x2="20.5" y2="9.8"/><line x1="8" y1="3" x2="8" y2="6.6"/><line x1="16" y1="3" x2="16" y2="6.6"/></svg>';
+var TAB_PEOPLE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.2" r="3.2"/><path d="M3.3 20c0-3.6 2.5-6.2 5.7-6.2s5.7 2.6 5.7 6.2"/><circle cx="17.2" cy="8.6" r="2.3"/><path d="M15.3 13.9c2.3.4 3.9 2.4 3.9 5.1"/></svg>';
+var TAB_GEAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
 function clockPointOnCircle(cx, cy, r, clockDeg){
   var rad = (clockDeg - 90) * Math.PI / 180;
   return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
