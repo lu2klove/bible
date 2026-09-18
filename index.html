@@ -192,9 +192,20 @@
   .cal-cell.has-activity::after{
     content:''; width:5px; height:5px; border-radius:50%; background:var(--brick); position:absolute; bottom:2%;
   }
-  .cal-cell .reading-done-ico{position:absolute; top:19%; right:19%; font-size:0.5625rem; line-height:1; transform:translate(50%,-50%);}
-  .cal-cell .prayer-ico{position:absolute; top:19%; left:19%; font-size:0.5625rem; line-height:1; transform:translate(-50%,-50%);}
-  .cal-cell .chat-ico{position:absolute; bottom:19%; right:19%; font-size:0.5625rem; line-height:1; transform:translate(50%,50%);}
+  .cal-icon-row{
+    position:absolute; top:8%; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:2px; line-height:1;
+  }
+  .cal-icon-row .prayer-ico, .cal-icon-row .reading-done-ico, .cal-icon-row .chat-ico{
+    font-size:0.5rem; display:inline-flex;
+  }
+  .cal-icon-row .chat-ico{ width:0.5rem; height:0.5rem; }
+  @media (min-width:900px){
+    .cal-daynum{ font-size:1.375rem; }
+    .cal-icon-row{ top:12%; gap:4px; }
+    .cal-icon-row .prayer-ico, .cal-icon-row .reading-done-ico, .cal-icon-row .chat-ico{ font-size:0.9375rem; }
+    .cal-icon-row .chat-ico{ width:0.9375rem; height:0.9375rem; }
+  }
   .cal-cell.faded{color:var(--ink-faint);}
   .cal-cell.sunday, .cal-cell.holiday{color:var(--brick); font-weight:700;}
   .cal-cell.saturday{color:var(--blue); font-weight:700;}
@@ -255,7 +266,7 @@
     font-size:0.6875rem; font-weight:700; color:#1C1A24; background:#fff; cursor:pointer;
     -webkit-appearance:none; appearance:none; font-family:inherit; outline:none;
   }
-  .editorial-carousel{display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:0; scrollbar-width:none; flex:1;}
+  .editorial-carousel{display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; gap:0; scrollbar-width:none; flex:1;}
   .editorial-carousel::-webkit-scrollbar{display:none;}
   .editorial-carousel .editorial-card{flex:0 0 100%;}
   .editorial-dots{display:flex; justify-content:center; gap:5px; margin-top:6px;}
@@ -837,22 +848,34 @@ function renderMainApp(){
     headerBgStyle = ' style="background-image:url('+"'"+currentGroupInfo.header_bg_image+"'"+');background-size:cover;background-position:center;"';
   }
   html += '<div class="header"'+headerBgStyle+'>';
-  html += '<div style="flex:1;text-align:'+logoPosition+';"><h1'+(logoColor?' style="color:'+logoColor+';"':'')+'>🙏 '+escapeHtml(logoTitle)+'</h1><p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p></div>';
+  html += '<div style="flex:1;display:flex;align-items:center;gap:10px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">';
+  if(logoPosition !== 'center'){
+    html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;">'+
+      (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:38px;height:38px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:38px;height:38px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:1.0625rem;">👤</div>')+
+      '</button>';
+  }
+  html += '<div style="text-align:'+logoPosition+';"><h1'+(logoColor?' style="color:'+logoColor+';"':'')+'>🙏 '+escapeHtml(logoTitle)+'</h1><p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p></div>';
+  html += '</div>';
   html += '<button class="btn" id="logoutBtn" type="button" style="padding:7px 12px;font-size:0.7812rem;">로그아웃</button>';
   html += '</div>';
   html += '<div id="tabContent"></div>';
   html += '<div class="tabbar">';
-  html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span>캘린더</button>';
-  html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span>멤버</button>';
-  html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my"><span class="ico">🙋</span>마이</button>';
+  html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span></button>';
+  html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span></button>';
+  html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my">'+
+    (currentMember.photo_image ? '<span class="ico"><img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;"></span>' : '<span class="ico">🙋</span>')+
+    '</button>';
   var memberPerms = getPermissionSettings().member;
   var memberHasAnySettingAccess = memberPerms.activity_types || memberPerms.appearance || memberPerms.bible_settings || memberPerms.group_management;
   if(isAdminRole(currentMember.role) || memberHasAnySettingAccess){
-    html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">⚙️</span>설정</button>';
+    html += '<button class="'+(activeTab==='settings'?'active':'')+'" data-tab="settings"><span class="ico">⚙️</span></button>';
   }
   html += '</div>';
 
   app.innerHTML = html;
+
+  var headerProfileBtn = document.getElementById('headerProfileBtn');
+  if(headerProfileBtn) headerProfileBtn.addEventListener('click', openMyInfoSheet);
 
   document.getElementById('logoutBtn').addEventListener('click', function(){
     if(dailyChatPollTimer){ clearInterval(dailyChatPollTimer); dailyChatPollTimer = null; }
@@ -884,6 +907,7 @@ function renderActiveTab(){
 var memberStatPeriodType = 'week';
 var memberStatAnchor = todayStr();
 var memberListPage = 1;
+var announceListPage = 1;
 var memberStatActivityType = 'all';
 
 function getStatPeriodRange(type, anchor){
@@ -1240,6 +1264,11 @@ async function openMemberForm(existing){
     html += '<option value="'+pos+'"'+(e.position===pos?' selected':'')+'>'+pos+'</option>';
   });
   html += '</select></div>';
+  html += '<div class="field"><span class="field-label">세례 여부</span><div class="chiprow">';
+  html += '<button type="button" class="chip'+(!e.baptized?' selected':'')+'" data-baptized="false">미세례</button>';
+  html += '<button type="button" class="chip'+(e.baptized?' selected':'')+'" data-baptized="true">세례</button>';
+  html += '</div></div>';
+  html += '<div class="field"><span class="field-label">교회 등록일(선택)</span><input type="date" id="mem_churchJoinedDate" value="'+(e.church_joined_date||'')+'"></div>';
   html += '<div class="field"><span class="field-label">권한</span><div class="chiprow">';
   html += '<button type="button" class="chip'+((e.role||'member')==='member'?' selected':'')+'" data-role="member">일반 멤버</button>';
   html += '<button type="button" class="chip'+(e.role==='admin'?' selected':'')+'" data-role="admin">관리자</button>';
@@ -1274,6 +1303,15 @@ async function openMemberForm(existing){
     });
   });
 
+  var selectedBaptized = !!e.baptized;
+  document.querySelectorAll('#genericSheetBody [data-baptized]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      selectedBaptized = chip.getAttribute('data-baptized') === 'true';
+      document.querySelectorAll('#genericSheetBody [data-baptized]').forEach(function(c){ c.classList.remove('selected'); });
+      chip.classList.add('selected');
+    });
+  });
+
   var currentMemberPhoto = e.photo_image || null;
   wireImageFieldGlobal('mem_photo', function(){ return currentMemberPhoto; }, function(v){ currentMemberPhoto = v; }, 'mem_photoInput');
 
@@ -1297,6 +1335,8 @@ async function openMemberForm(existing){
       name: name, pin: pin, role: selectedRole,
       birthday: document.getElementById('mem_birthday').value || null,
       position: document.getElementById('mem_position').value || null,
+      baptized: selectedBaptized,
+      church_joined_date: document.getElementById('mem_churchJoinedDate').value || null,
       photo_image: currentMemberPhoto
     };
     var res;
@@ -1411,7 +1451,7 @@ async function renderMyTab(){
   }
   html += '<p class="field-label-strong">🙋 '+escapeHtml(currentMember.name)+'님'+(currentMember.position?' <span class="savehint">('+escapeHtml(currentMember.position)+')</span>':'')+'</p>';
   html += '</div>';
-  html += '<button class="btn btn-block" id="my_pinBtn" type="button" style="margin-top:10px;">🔒 비밀번호(PIN) 변경</button>';
+  html += '<button class="btn btn-block" id="my_pinBtn" type="button" style="margin-top:10px;">👤 마이정보</button>';
   html += '</div>';
 
   html += '<div class="card">';
@@ -1562,7 +1602,7 @@ async function renderMyTab(){
 
   el.innerHTML = html;
 
-  document.getElementById('my_pinBtn').addEventListener('click', openChangePinSheet);
+  document.getElementById('my_pinBtn').addEventListener('click', openMyInfoSheet);
   document.getElementById('my_readingSetBtn').addEventListener('click', function(){ openReadingSettingsSheet(plan); });
   document.querySelectorAll('[data-month-toggle]').forEach(function(header){
     header.addEventListener('click', function(){
@@ -1588,29 +1628,43 @@ async function renderMyTab(){
   }
 }
 
-function openChangePinSheet(){
+function openMyInfoSheet(){
+  var m = currentMember;
   var html = '';
-  html += '<div class="field"><span class="field-label">새 PIN 번호(4자리)</span><input type="password" id="pin_new" inputmode="numeric" placeholder="4자리 숫자"></div>';
+  html += '<div class="field"><span class="field-label">생일(선택)</span><input type="date" id="myinfo_birthday" value="'+(m.birthday||'')+'"></div>';
+  html += '<div class="field"><span class="field-label">직분(선택)</span><input type="text" id="myinfo_position" placeholder="예: 집사, 권사, 청년" value="'+escapeHtml(m.position||'')+'"></div>';
+  html += '<hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">';
+  html += '<p class="field-label-strong" style="margin-bottom:8px;">🔒 PIN 번호 변경</p>';
+  html += '<div class="field"><span class="field-label">새 PIN 번호(4자리)</span><input type="password" id="pin_new" inputmode="numeric" placeholder="변경할 때만 입력"></div>';
   html += '<div class="field"><span class="field-label">새 PIN 확인</span><input type="password" id="pin_confirm" inputmode="numeric" placeholder="다시 입력"></div>';
   html += '<p class="savehint" id="pin_error" style="color:var(--brick);min-height:18px;"></p>';
-  html += '<button class="btn btn-primary btn-block" id="pin_saveBtn" type="button">변경하기</button>';
+  html += '<button class="btn btn-primary btn-block" id="myinfo_saveBtn" type="button">저장</button>';
 
-  document.getElementById('genericSheetTitle').textContent = '🔒 PIN 번호 변경';
+  document.getElementById('genericSheetTitle').textContent = '👤 마이정보';
   document.getElementById('genericSheetBody').innerHTML = html;
   openSheet('genericSheet');
 
-  document.getElementById('pin_saveBtn').addEventListener('click', async function(){
+  document.getElementById('myinfo_saveBtn').addEventListener('click', async function(){
     var p1 = document.getElementById('pin_new').value.trim();
     var p2 = document.getElementById('pin_confirm').value.trim();
     var errEl = document.getElementById('pin_error');
-    if(!p1 || p1.length < 4){ errEl.textContent = 'PIN은 4자리 이상으로 입력해주세요.'; return; }
-    if(p1 !== p2){ errEl.textContent = '두 PIN이 서로 달라요.'; return; }
-
-    var res = await supabaseClient.from('sg_members').update({ pin: p1 }).eq('id', currentMember.id);
-    if(res.error){ errEl.textContent = '변경 실패: '+res.error.message; return; }
-    currentMember.pin = p1;
+    if(p1 || p2){
+      if(p1.length < 4){ errEl.textContent = 'PIN은 4자리 이상으로 입력해주세요.'; return; }
+      if(p1 !== p2){ errEl.textContent = '두 PIN이 서로 달라요.'; return; }
+    }
+    var payload = {
+      birthday: document.getElementById('myinfo_birthday').value || null,
+      position: document.getElementById('myinfo_position').value.trim() || null
+    };
+    if(p1) payload.pin = p1;
+    var res = await supabaseClient.from('sg_members').update(payload).eq('id', currentMember.id);
+    if(res.error){ errEl.textContent = '저장 실패: '+res.error.message; return; }
+    Object.assign(currentMember, payload);
+    var meIdx = members.findIndex(function(mm){ return mm.id === currentMember.id; });
+    if(meIdx>=0) Object.assign(members[meIdx], payload);
     closeSheet('genericSheet');
-    showToast('PIN이 변경됐어요.');
+    renderMyTab();
+    showToast('마이정보를 저장했어요.');
   });
 }
 
@@ -1882,13 +1936,25 @@ async function renderSettingsTab(){
     if(announcements.length === 0){
       html += '<p class="empty-inline">등록된 공지가 없어요.</p>';
     }else{
-      announcements.forEach(function(a){
-        html += '<div class="member-row"><span>'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+(a.expires_at?'<br><span class="savehint">'+a.expires_at+'까지</span>':'')+'</span>';
+      var ANNOUNCE_PAGE_SIZE = 5;
+      var announceTotalPages = Math.max(1, Math.ceil(announcements.length / ANNOUNCE_PAGE_SIZE));
+      if(announceListPage > announceTotalPages) announceListPage = announceTotalPages;
+      if(announceListPage < 1) announceListPage = 1;
+      var pageAnnouncements = announcements.slice((announceListPage-1)*ANNOUNCE_PAGE_SIZE, announceListPage*ANNOUNCE_PAGE_SIZE);
+      pageAnnouncements.forEach(function(a){
+        html += '<div class="member-row"><span>'+(a.pinned?'📌 ':'📢 ')+escapeHtml(a.content)+(a.activity_type?'<br><span class="savehint">🏷️ '+escapeHtml(a.activity_type)+'</span>':'')+(a.expires_at?'<br><span class="savehint">'+a.expires_at+'까지</span>':'')+'</span>';
         html += '<div style="display:flex;gap:6px;">';
         html += '<button class="chip" data-announce-edit="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
         html += '<button class="chip" data-announce-del="'+a.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
         html += '</div></div>';
       });
+      if(announceTotalPages > 1){
+        html += '<div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;">';
+        html += '<button class="btn" id="announce_pagePrev" type="button" style="padding:6px 10px;"'+(announceListPage<=1?' disabled':'')+'>‹</button>';
+        html += '<span class="savehint">'+announceListPage+' / '+announceTotalPages+'페이지</span>';
+        html += '<button class="btn" id="announce_pageNext" type="button" style="padding:6px 10px;"'+(announceListPage>=announceTotalPages?' disabled':'')+'>›</button>';
+        html += '</div>';
+      }
     }
     html += '</div>';
   }
@@ -2038,6 +2104,10 @@ async function renderSettingsTab(){
         showToast('삭제했어요.');
       });
     });
+    var announcePrevBtn = document.getElementById('announce_pagePrev');
+    var announceNextBtn = document.getElementById('announce_pageNext');
+    if(announcePrevBtn) announcePrevBtn.addEventListener('click', function(){ announceListPage--; renderSettingsTab(); });
+    if(announceNextBtn) announceNextBtn.addEventListener('click', function(){ announceListPage++; renderSettingsTab(); });
   }
 
   if(hasPermission('activity_types')){
@@ -2353,6 +2423,11 @@ function openAnnouncementForm(existing){
   var e = existing || {};
   var html = '';
   html += '<div class="field"><span class="field-label">공지 내용</span><textarea id="ann_content" rows="3" placeholder="예: 이번 주 소모임은 오후 7시입니다.">'+escapeHtml(e.content||'')+'</textarea></div>';
+  html += '<div class="field"><span class="field-label">활동 항목(선택)</span><select id="ann_activityType"><option value="">선택 안 함</option>';
+  activityTypes.forEach(function(t){
+    html += '<option value="'+escapeHtml(t.name)+'"'+(e.activity_type===t.name?' selected':'')+'>'+escapeHtml(t.name)+'</option>';
+  });
+  html += '</select></div>';
   html += '<div class="field"><span class="field-label">만료일(선택)</span><input type="date" id="ann_expires" value="'+(e.expires_at||'')+'"></div>';
   html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">';
   html += '<input type="checkbox" id="ann_pinned"'+(e.pinned?' checked':'')+'> <span class="savehint">📌 최상단 고정</span>';
@@ -2366,13 +2441,14 @@ function openAnnouncementForm(existing){
 
   document.getElementById('ann_saveBtn').addEventListener('click', async function(){
     var content = document.getElementById('ann_content').value.trim();
+    var activityType = document.getElementById('ann_activityType').value || null;
     var expires = document.getElementById('ann_expires').value || null;
     var pinned = document.getElementById('ann_pinned').checked;
     if(!content){ showToast('내용을 입력해주세요.'); return; }
     var res = existing
-      ? await supabaseClient.from('sg_announcements').update({ content: content, expires_at: expires, pinned: pinned }).eq('id', existing.id)
+      ? await supabaseClient.from('sg_announcements').update({ content: content, activity_type: activityType, expires_at: expires, pinned: pinned }).eq('id', existing.id)
       : await supabaseClient.from('sg_announcements').insert({
-          id: uid(), group_id: currentMember.group_id, content: content, created_by: currentMember.id, expires_at: expires, pinned: pinned
+          id: uid(), group_id: currentMember.group_id, content: content, activity_type: activityType, created_by: currentMember.id, expires_at: expires, pinned: pinned
         });
     if(res.error){ showToast('저장 실패: '+res.error.message); return; }
     closeSheet('genericSheet');
@@ -2631,9 +2707,13 @@ async function renderCalendarTab(){
     else if(weekday===6) cls += ' saturday';
     html += '<div class="'+cls+'" data-date="'+iso+'"'+(holidayName?' title="'+escapeHtml(holidayName)+'"':'')+'>';
     html += '<span class="cal-daynum">'+d+'</span>';
-    if(hasPrayer) html += '<span class="prayer-ico">✝️</span>';
-    if(completedReadingDates[iso]) html += '<span class="reading-done-ico">📖</span>';
-    if(chatDatesInMonth[iso]) html += '<span class="chat-ico">'+CHAT_BUBBLE_SVG+'</span>';
+    if(hasPrayer || completedReadingDates[iso] || chatDatesInMonth[iso]){
+      html += '<span class="cal-icon-row">';
+      if(hasPrayer) html += '<span class="prayer-ico">✝️</span>';
+      if(completedReadingDates[iso]) html += '<span class="reading-done-ico">📖</span>';
+      if(chatDatesInMonth[iso]) html += '<span class="chat-ico">'+CHAT_BUBBLE_SVG+'</span>';
+      html += '</span>';
+    }
     html += '</div>';
   }
   html += '</div></div>';
@@ -2927,7 +3007,7 @@ function openActivityForm(existing, dateIso, readOnly){
       var prayerExpires = (prayerExpiresInput && prayerExpiresInput.value) ? prayerExpiresInput.value : date;
       await supabaseClient.from('sg_announcements').insert({
         id: uid(), group_id: currentMember.group_id,
-        content: '🙏 ['+date+'] '+title+(memo?' - '+memo:'')+' 함께 합심기도해요!',
+        content: '🙏 '+currentMember.name+'님 ['+date+'] '+title+(memo?' - '+memo:'')+' 함께 합심기도해요!',
         created_by: currentMember.id, expires_at: prayerExpires
       });
     }
