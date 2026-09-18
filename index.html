@@ -143,10 +143,11 @@
   @media (min-width:1600px){ .tabbar{ max-width:1100px; } }
   .tabbar button{
     flex:1; background:none; border:none; padding:11px 4px 9px; display:flex; flex-direction:column;
-    align-items:center; gap:2px; color:var(--ink-faint); font-size:0.6875rem; font-weight:600; cursor:pointer;
+    align-items:center; justify-content:flex-start; gap:2px; color:var(--ink-faint); font-size:0.6875rem; font-weight:600; cursor:pointer;
   }
   .tabbar button.active{color:var(--pine);}
-  .tabbar button .ico{font-size:1.1875rem;}
+  .tabbar button .ico{font-size:1.1875rem; height:1.1875rem; display:flex; align-items:center; justify-content:center;}
+  .tabbar button .ico img{width:1.0625rem; height:1.0625rem; border-radius:50%; object-fit:cover; display:block;}
   .overlay{
     position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:80; display:none;
   }
@@ -848,7 +849,7 @@ function renderMainApp(){
     headerBgStyle = ' style="background-image:url('+"'"+currentGroupInfo.header_bg_image+"'"+');background-size:cover;background-position:center;"';
   }
   html += '<div class="header"'+headerBgStyle+'>';
-  html += '<div style="flex:1;display:flex;align-items:center;gap:10px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">';
+  html += '<div style="flex:1;display:flex;align-items:flex-start;gap:10px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">';
   if(logoPosition !== 'center'){
     html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;">'+
       (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:38px;height:38px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:38px;height:38px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:1.0625rem;">👤</div>')+
@@ -863,7 +864,7 @@ function renderMainApp(){
   html += '<button class="'+(activeTab==='calendar'?'active':'')+'" data-tab="calendar"><span class="ico">📅</span></button>';
   html += '<button class="'+(activeTab==='members'?'active':'')+'" data-tab="members"><span class="ico">👥</span></button>';
   html += '<button class="'+(activeTab==='my'?'active':'')+'" data-tab="my">'+
-    (currentMember.photo_image ? '<span class="ico"><img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;"></span>' : '<span class="ico">🙋</span>')+
+    (currentMember.photo_image ? '<span class="ico"><img src="'+currentMember.photo_image+'"></span>' : '<span class="ico">🙋</span>')+
     '</button>';
   var memberPerms = getPermissionSettings().member;
   var memberHasAnySettingAccess = memberPerms.activity_types || memberPerms.appearance || memberPerms.bible_settings || memberPerms.group_management;
