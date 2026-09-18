@@ -857,14 +857,12 @@ function renderMainApp(){
     headerBgStyle = ' style="background-image:url('+"'"+currentGroupInfo.header_bg_image+"'"+');background-size:cover;background-position:center;"';
   }
   html += '<div class="header"'+headerBgStyle+'>';
-  html += '<div style="flex:1;text-align:'+logoPosition+';">';
-  html += '<h1'+(logoColor?' style="color:'+logoColor+';"':'')+' style="display:flex;align-items:center;gap:8px;">'+icoSpan('pray')+' '+escapeHtml(logoTitle)+'</h1>';
-  html += '<div style="display:flex;align-items:center;gap:6px;'+(logoPosition==='center'?'justify-content:center;':(logoPosition==='right'?'justify-content:flex-end;':''))+'">';
-  if(logoPosition !== 'center'){
-    html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;display:flex;">'+
-      (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:22px;height:22px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;">'+icoSpan('person',0.8)+'</div>')+
-      '</button>';
-  }
+  html += '<div style="flex:1;">';
+  html += '<h1'+(logoColor?' style="color:'+logoColor+';"':'')+' style="display:flex;align-items:center;gap:8px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">'+icoSpan('pray')+' '+escapeHtml(logoTitle)+'</h1>';
+  html += '<div style="display:flex;align-items:center;gap:6px;">';
+  html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;display:flex;">'+
+    (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:22px;height:22px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;">'+icoSpan('person',0.8)+'</div>')+
+    '</button>';
   html += '<p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p>';
   html += '</div></div>';
   html += '<button class="btn" id="logoutBtn" type="button" style="padding:7px 12px;font-size:0.7812rem;">로그아웃</button>';
@@ -2227,11 +2225,16 @@ async function renderSettingsTab(){
     });
     var selectedTheme = currentGroup.theme || 'default';
     el.querySelectorAll('[data-theme-pick]').forEach(function(chip){
-      chip.addEventListener('click', function(){
+      chip.addEventListener('click', async function(){
         selectedTheme = chip.getAttribute('data-theme-pick');
         el.querySelectorAll('[data-theme-pick]').forEach(function(c){ c.classList.remove('selected'); });
         chip.classList.add('selected');
         applyAppearance(Object.assign({}, currentGroup, { theme: selectedTheme, font_family: selectedFont }));
+        var res = await supabaseClient.from('sg_groups').update({ theme: selectedTheme }).eq('id', currentMember.group_id);
+        if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+        currentGroupInfo = Object.assign({}, currentGroupInfo, { theme: selectedTheme });
+        currentGroup.theme = selectedTheme;
+        showToast('테마 설정을 저장했어요.');
       });
     });
     var selectedFont = currentGroup.font_family || 'default';
