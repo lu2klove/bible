@@ -392,7 +392,7 @@ function getYoutubeThumbnail(url){
   if(!url) return null;
   var m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
   if(!m) return null;
-  return 'https://img.youtube.com/vi/'+m[1]+'/mqdefault.jpg';
+  return 'https://img.youtube.com/vi/'+m[1]+'/hqdefault.jpg';
 }
 
 // ---------- 한국 공휴일 ----------
