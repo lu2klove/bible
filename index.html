@@ -147,7 +147,7 @@
   }
   .tabbar button.active{color:var(--pine);}
   .tabbar button .ico{font-size:1.1875rem; height:1.1875rem; display:flex; align-items:center; justify-content:center;}
-  .tabbar button .ico img{width:1.0625rem; height:1.0625rem; border-radius:50%; object-fit:cover; display:block;}
+  .tabbar button .ico img{width:1.375rem; height:1.375rem; border-radius:50%; object-fit:cover; display:block;}
   .overlay{
     position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:80; display:none;
   }
@@ -849,13 +849,16 @@ function renderMainApp(){
     headerBgStyle = ' style="background-image:url('+"'"+currentGroupInfo.header_bg_image+"'"+');background-size:cover;background-position:center;"';
   }
   html += '<div class="header"'+headerBgStyle+'>';
-  html += '<div style="flex:1;display:flex;align-items:flex-start;gap:10px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">';
+  html += '<div style="flex:1;text-align:'+logoPosition+';">';
+  html += '<h1'+(logoColor?' style="color:'+logoColor+';"':'')+'>🙏 '+escapeHtml(logoTitle)+'</h1>';
+  html += '<div style="display:flex;align-items:center;gap:6px;'+(logoPosition==='center'?'justify-content:center;':(logoPosition==='right'?'justify-content:flex-end;':''))+'">';
   if(logoPosition !== 'center'){
-    html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;">'+
-      (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:38px;height:38px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:38px;height:38px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:1.0625rem;">👤</div>')+
+    html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;display:flex;">'+
+      (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:22px;height:22px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:0.6875rem;">👤</div>')+
       '</button>';
   }
-  html += '<div style="text-align:'+logoPosition+';"><h1'+(logoColor?' style="color:'+logoColor+';"':'')+'>🙏 '+escapeHtml(logoTitle)+'</h1><p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p></div>';
+  html += '<p class="savehint">'+escapeHtml(currentMember.name)+'님'+roleBadgeHTML(currentMember.role)+'</p>';
+  html += '</div></div>';
   html += '</div>';
   html += '<button class="btn" id="logoutBtn" type="button" style="padding:7px 12px;font-size:0.7812rem;">로그아웃</button>';
   html += '</div>';
