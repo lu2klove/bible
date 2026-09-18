@@ -858,7 +858,7 @@ function renderMainApp(){
   }
   html += '<div class="header"'+headerBgStyle+'>';
   html += '<div style="flex:1;">';
-  html += '<h1'+(logoColor?' style="color:'+logoColor+';"':'')+' style="display:flex;align-items:center;gap:8px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+';">'+icoSpan('pray')+' '+escapeHtml(logoTitle)+'</h1>';
+  html += '<h1 style="display:flex;align-items:center;gap:8px;justify-content:'+(logoPosition==='center'?'center':(logoPosition==='right'?'flex-end':'flex-start'))+(logoColor?';color:'+logoColor:'')+';">'+icoSpan('pray')+' '+escapeHtml(logoTitle)+'</h1>';
   html += '<div style="display:flex;align-items:center;gap:6px;">';
   html += '<button type="button" id="headerProfileBtn" style="border:none;background:none;padding:0;cursor:pointer;flex-shrink:0;display:flex;">'+
     (currentMember.photo_image ? '<img src="'+currentMember.photo_image+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block;">' : '<div style="width:22px;height:22px;border-radius:50%;background:var(--line);display:flex;align-items:center;justify-content:center;">'+icoSpan('person',0.8)+'</div>')+
