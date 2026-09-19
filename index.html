@@ -289,19 +289,6 @@
   .color-swatch-round::-webkit-color-swatch{border:none; border-radius:50%;}
   .color-swatch-round::-moz-color-swatch{border:none; border-radius:50%;}
   .ig-calendar-card{background:#FFFFFF; border:1px solid rgba(0,0,0,0.06); border-radius:18px; box-shadow:0 3px 14px rgba(0,0,0,0.14);}
-
-  /* ---- 성경 본문 읽기 전용 스타일 ---- */
-  .bible-reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
-  .bible-chapter-title{font-size:1.4375rem;margin-top:3px;}
-  .bible-page-count{font-size:0.75rem;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
-  .bible-range-note{background:var(--pine-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:var(--ink-soft);margin-bottom:14px;}
-  .bible-text{font-family:var(--font-heading);background:var(--paper-raised);border:1px solid var(--line);border-radius:10px;padding:16px 14px;margin-bottom:10px;}
-  .bible-verse{font-size:1.0625rem;line-height:1.9;margin:0 0 10px;letter-spacing:-.01em;}
-  .bible-verse:last-child{margin-bottom:0;}
-  .bible-verse sup{font-family:var(--font-body);font-size:0.6875rem;color:var(--pine);font-weight:700;margin-right:6px;vertical-align:top;line-height:1.7;}
-  .bible-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .bible-nav .btn:disabled{opacity:.35;cursor:default;}
-  .bible-loading{text-align:center;padding:50px 10px;color:var(--ink-faint);font-size:0.8125rem;}
 </style>
 </head>
 <body>
@@ -457,6 +444,21 @@ function flattenBooks(books){
 // ---------- 유틸 ----------
 function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9); }
 function isAdminRole(role){ return role === 'admin' || role === 'super_admin'; }
+async function syncActivityTypesToAllGroups(sourceTypes){
+  try{
+    var groupsRes = await supabaseClient.from('sg_groups').select('id');
+    if(groupsRes.error) return groupsRes;
+    var allGroupIds = (groupsRes.data||[]).map(function(g){ return g.id; });
+    var delRes = await supabaseClient.from('sg_activity_types').delete().in('group_id', allGroupIds);
+    if(delRes.error) return delRes;
+    var newRows = [];
+    allGroupIds.forEach(function(gid){
+      sourceTypes.forEach(function(t){ newRows.push({ id: uid(), group_id: gid, name: t.name }); });
+    });
+    if(newRows.length === 0) return { error: null };
+    return await supabaseClient.from('sg_activity_types').insert(newRows);
+  }catch(err){ return { error: { message: err.message||String(err) } }; }
+}
 function roleBadgeHTML(role){
   if(role === 'super_admin') return ' <span class="badge badge-admin">'+icoSpan('crown',0.8)+' 최고관리자</span>';
   if(role === 'admin') return ' <span class="badge badge-admin">관리자</span>';
@@ -466,6 +468,12 @@ var DEFAULT_PERMISSION_SETTINGS = {
   admin: { activity_types:true, appearance:true, bible_settings:true, group_management:true, worship_video:true },
   member: { activity_types:false, appearance:false, bible_settings:false, group_management:false, worship_video:false }
 };
+var DEFAULT_ACTIVITY_TYPES = ['정기모임', '심방', '기도요청'];
+function getEffectiveActivityTypes(){
+  if(activityTypes.length > 0) return activityTypes;
+  if(!hasPermission('activity_types')) return DEFAULT_ACTIVITY_TYPES.map(function(name){ return { name: name }; });
+  return activityTypes;
+}
 function getPermissionSettings(){
   var saved = (systemSettingsInfo && systemSettingsInfo.permission_settings) || {};
   return {
@@ -1890,115 +1898,7 @@ async function sendDailyChatMessage(dateIso){
   renderCalendarTab();
 }
 
-async async function loadBibleChapter(book, chapter){
-  var code = BSKOREA_BOOK_CODE[book];
-  var shortBook = book.slice(0, 1);
-  var cNum = Number(chapter);
-
-  var r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  if (code) {
-    r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book_code', code).eq('chapter', cNum).order('verse', {ascending:true});
-    if (!r.error && r.data && r.data.length > 0) return r;
-  }
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').ilike('book', '%' + book + '%').eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', shortBook).eq('chapter', cNum).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  r = await supabaseClient.from('bible').select('book,book_code,chapter,verse,text').eq('book', book).eq('chapter', String(chapter)).order('verse', {ascending:true});
-  if (!r.error && r.data && r.data.length > 0) return r;
-
-  var testAll = await supabaseClient.from('bible').select('book,book_code,chapter').limit(3);
-  if (testAll.error) {
-    return { data: [], error: testAll.error };
-  }
-  if (!testAll.data || testAll.data.length === 0) {
-    return { data: [], error: { message: "Supabase 'bible' 테이블에 데이터가 전혀 없거나 RLS(보안정책)로 읽기가 차단되어 있습니다." } };
-  }
-
-  var sampleRow = testAll.data[0];
-  return { 
-    data: [], 
-    error: { 
-      message: "'" + book + "' 말씀을 찾지 못했습니다. (DB 실제 데이터 포맷 예시: book='" + (sampleRow.book||'') + "', book_code='" + (sampleRow.book_code||'') + "')" 
-    } 
-  };
-}
-
-function buildReadingChapterList(chapters){
-  if(!chapters || !chapters.length) return [];
-  var books = flattenBooks(OT_BOOKS).concat(flattenBooks(NT_BOOKS));
-  var si = books.findIndex(function(x){return x.book===chapters[0].book && x.chapter===chapters[0].chapter;});
-  var ei = books.findIndex(function(x){return x.book===chapters[chapters.length-1].book && x.chapter===chapters[chapters.length-1].chapter;});
-  if(si<0 || ei<si) return chapters.slice();
-  return books.slice(si,ei+1);
-}
-
-// --- 앱 내 성경 말씀 뷰어 ---
-async function openBibleReader(dateIso, plan, chapters, done){
-  var body = document.getElementById('dailyReadingSheetBody');
-  var progressForReader = await loadReadingProgress(plan.id);
-  var existingRowForReader = progressForReader.find(function(p){ return p.date === dateIso; });
-  var chapterList = buildReadingChapterList(chapters), currentIndex = 0;
-
-  async function renderChapter(){
-    var ch = chapterList[currentIndex];
-    body.innerHTML = '<div class="bible-loading">말씀을 불러오는 중…</div>';
-    var res = await loadBibleChapter(ch.book, ch.chapter);
-    if(res.error){
-      body.innerHTML = '<div class="card"><p style="font-weight:700;color:var(--brick);">말씀을 불러오지 못했어요.</p><p class="savehint" style="margin-top:6px;">'+escapeHtml(res.error.message||'알 수 없는 오류')+'</p></div>';
-      return;
-    }
-    var verses = res.data || [], html = '';
-    html += '<div class="bible-reader-head"><div><p class="savehint">'+niceDate(dateIso)+' · 오늘의 통독</p><h2 class="bible-chapter-title">'+escapeHtml(ch.book)+' '+ch.chapter+'장</h2></div><span class="bible-page-count">'+(currentIndex+1)+' / '+chapterList.length+'장</span></div>';
-    html += '<div class="bible-range-note">통독 범위 · '+formatChapterRange(chapters)+'</div>';
-    if(!verses.length){
-      html += '<div class="card"><p class="empty-inline">이 장의 말씀을 찾지 못했어요.</p></div>';
-    }else{
-      html += '<article class="bible-text">';
-      verses.forEach(function(v){
-        html += '<p class="bible-verse"><sup>'+v.verse+'</sup>'+escapeHtml(v.text)+'</p>';
-      });
-      html += '</article>';
-    }
-    html += '<div class="bible-nav"><button class="btn" id="biblePrevBtn" type="button"'+(currentIndex===0?' disabled':'')+'>‹ 이전 장</button><button class="btn" id="bibleNextBtn" type="button"'+(currentIndex===chapterList.length-1?' disabled':'')+'>다음 장 ›</button></div>';
-    if(currentIndex === chapterList.length-1){
-      if(done){
-        html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);margin-top:10px;"><p style="font-weight:700;color:var(--pine);">✅ 오늘의 통독 완료</p></div>';
-      }else{
-        html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:10px;">읽기 완료</button>';
-      }
-    }else{
-      html += '<p class="savehint" style="text-align:center;margin-top:10px;">마지막 장까지 읽은 후 「읽기 완료」를 눌러주세요.</p>';
-    }
-    body.innerHTML = html;
-    var prev = document.getElementById('biblePrevBtn'), next = document.getElementById('bibleNextBtn');
-    if(prev) prev.addEventListener('click', function(){ currentIndex--; renderChapter(); });
-    if(next) next.addEventListener('click', function(){ currentIndex++; renderChapter(); });
-    var complete = document.getElementById('dr_completeBtn');
-    if(complete) complete.addEventListener('click', async function(){
-      var first = chapters[0], last = chapters[chapters.length-1], rangeFields = { range_start_book: first.book, range_start_chapter: first.chapter, range_end_book: last.book, range_end_chapter: last.chapter };
-      var payload = existingRowForReader
-        ? Object.assign({ completed: true, completed_at: new Date().toISOString() }, rangeFields)
-        : Object.assign({ id: uid(), plan_id: plan.id, date: dateIso, completed: true, completed_at: new Date().toISOString() }, rangeFields);
-      var saveRes = existingRowForReader
-        ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRowForReader.id)
-        : await supabaseClient.from('sg_reading_progress').insert(payload);
-      if(saveRes.error){ showToast('저장 실패: '+saveRes.error.message); return; }
-      showToast('오늘의 통독을 완료했어요! 🎉');
-      done = true;
-      renderChapter();
-    });
-  }
-  await renderChapter();
-}
-
-
-function openDailyReadingForDate(dateIso){
+async function openDailyReadingForDate(dateIso){
   var plan = await loadReadingPlan(currentMember.id);
   var html = '';
   if(!plan){
@@ -2040,35 +1940,30 @@ function openDailyReadingForDate(dateIso){
     var readingMode = groupInfo2.bible_reading_mode || 'bskorea';
 
     if(readingMode === 'custom' && groupInfo2.custom_bible_url){
-      html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;">📖 '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
+      html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">등록해둔 주소로 연결돼요. 오늘 읽을 범위('+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장~)를 직접 찾아 읽으세요.</p>';
     }else if(readingMode === 'bskorea'){
       var bskUrl = bskoreaReadUrl(startChapter.book, startChapter.chapter);
       var targetUrl = bskUrl || 'https://www.bskorea.or.kr/bible/korbibReadpage.php';
-      html += '<a href="'+escapeHtml(targetUrl)+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;">📖 대한성서공회에서 말씀 읽기</a>';
+      html += '<a href="'+escapeHtml(targetUrl)+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' 대한성서공회에서 말씀 읽기</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">대한성서공회 웹페이지로 이동하여 말씀을 읽습니다.</p>';
     }else{
-      // youversion (앱 내 성경 뷰어 연결)
-      html += '<button class="btn btn-primary btn-block" id="dr_openReaderBtn" type="button" style="margin-bottom:8px;">📖 성경읽기 (유버전)</button>';
-      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">버튼을 누르면 앱 내에서 성경 본문을 읽을 수 있어요.</p>';
+      var readUrl = youversionReadUrl(startChapter.book, startChapter.chapter);
+      if(readUrl){
+        html += '<a href="'+readUrl+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' 성경읽기 (유버전)</a>';
+        html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">'+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장부터 열려요. 이후 장은 그 페이지 안에서 넘겨서 읽으세요.</p>';
+      }
     }
   }
 
   if(done){
-    html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);"><p style="font-weight:700;color:var(--pine);">✅ 읽기 완료!</p></div>';
+    html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);"><p style="font-weight:700;color:var(--pine);display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('check')+' 읽기 완료!</p></div>';
   }else{
     html += '<button class="btn btn-primary btn-block" id="dr_completeBtn" type="button" style="margin-top:8px;">읽기 완료</button>';
   }
 
   document.getElementById('dailyReadingSheetBody').innerHTML = html;
   openSheet('dailyReadingSheet');
-
-  var readerBtn = document.getElementById('dr_openReaderBtn');
-  if(readerBtn){
-    readerBtn.addEventListener('click', function(){
-      openBibleReader(dateIso, plan, chapters, done);
-    });
-  }
 
   if(!done){
     var compBtn = document.getElementById('dr_completeBtn');
@@ -2086,13 +1981,12 @@ function openDailyReadingForDate(dateIso){
           ? await supabaseClient.from('sg_reading_progress').update(payload).eq('id', existingRow.id)
           : await supabaseClient.from('sg_reading_progress').insert(payload);
         if(res.error){ showToast('저장 실패: '+res.error.message); return; }
-        showToast('오늘의 통독을 완료했어요! 🎉');
+        showToast('오늘의 통독을 완료했어요!');
         openDailyReadingForDate(dateIso);
       });
     }
   }
 }
-
 
 // ---------- 설정 탭 ----------
 async function renderSettingsTab(){
@@ -2137,20 +2031,35 @@ async function renderSettingsTab(){
   }
 
   if(hasPermission('activity_types')){
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    var globalTypesOn = !!(systemSettingsInfo && systemSettingsInfo.activity_types_global_enabled);
+    var isSuperAdmin = currentMember.role === 'super_admin';
+    var typesLocked = globalTypesOn && !isSuperAdmin; // 전체적용 ON + 일반 그룹관리자 -> 읽기전용
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">';
     html += '<h2 style="font-size:1rem;display:flex;align-items:center;gap:6px;">'+icoSpan('tag')+' 소모임 활동 항목</h2>';
-    html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
+    if(!typesLocked){
+      html += '<button class="btn" id="set_addTypeBtn" type="button" style="padding:7px 12px;font-size:0.8125rem;">+ 항목 추가</button>';
+    }
     html += '</div>';
+    if(isSuperAdmin){
+      html += '<label style="display:flex;align-items:center;gap:8px;padding:4px 0 10px;cursor:pointer;">';
+      html += '<input type="checkbox" id="set_typesGlobalToggle"'+(globalTypesOn?' checked':'')+'> <span class="savehint">소그룹 전체 적용 — 켜면 이 목록이 모든 소그룹에 그대로 적용되고, 각 소그룹 관리자는 항목을 추가할 수 없어요.</span>';
+      html += '</label>';
+    }else if(typesLocked){
+      html += '<p class="savehint" style="margin-bottom:8px;">최고관리자가 전체 소그룹에 적용한 항목이에요. 이 화면에서는 추가·수정할 수 없어요.</p>';
+    }
     html += '<div class="card" style="margin-bottom:14px;">';
     if(activityTypes.length === 0){
       html += '<p class="empty-inline">등록된 항목이 없어요. (예: 정기모임, 기도요청, 심방 등)</p>';
     }else{
       activityTypes.forEach(function(t){
         html += '<div class="member-row"><span>'+(t.name==='기도요청'?icoSpan('cross')+' ':'')+escapeHtml(t.name)+'</span>';
-        html += '<div style="display:flex;gap:6px;">';
-        html += '<button class="chip" data-type-edit="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
-        html += '<button class="chip" data-type-del="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
-        html += '</div></div>';
+        if(!typesLocked){
+          html += '<div style="display:flex;gap:6px;">';
+          html += '<button class="chip" data-type-edit="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">수정</button>';
+          html += '<button class="chip" data-type-del="'+t.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
+          html += '</div>';
+        }
+        html += '</div>';
       });
     }
     html += '</div>';
@@ -2288,7 +2197,8 @@ async function renderSettingsTab(){
   }
 
   if(hasPermission('activity_types')){
-    document.getElementById('set_addTypeBtn').addEventListener('click', function(){ openActivityTypeForm(null); });
+    var addTypeBtn = document.getElementById('set_addTypeBtn');
+    if(addTypeBtn) addTypeBtn.addEventListener('click', function(){ openActivityTypeForm(null); });
     el.querySelectorAll('[data-type-edit]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var t = activityTypes.find(function(x){ return x.id === btn.getAttribute('data-type-edit'); });
@@ -2297,12 +2207,39 @@ async function renderSettingsTab(){
     });
     el.querySelectorAll('[data-type-del]').forEach(function(btn){
       btn.addEventListener('click', async function(){
-        await supabaseClient.from('sg_activity_types').delete().eq('id', btn.getAttribute('data-type-del'));
+        var delId = btn.getAttribute('data-type-del');
+        var delName = activityTypes.find(function(x){ return x.id === delId; });
+        await supabaseClient.from('sg_activity_types').delete().eq('id', delId);
+        if(systemSettingsInfo && systemSettingsInfo.activity_types_global_enabled && delName){
+          await supabaseClient.from('sg_activity_types').delete().eq('name', delName.name).neq('group_id', currentMember.group_id);
+        }
         await loadGroupData(currentMember.group_id);
         renderSettingsTab();
         showToast('삭제했어요.');
       });
     });
+    var typesGlobalToggle = document.getElementById('set_typesGlobalToggle');
+    if(typesGlobalToggle){
+      typesGlobalToggle.addEventListener('change', async function(){
+        var checked = typesGlobalToggle.checked;
+        if(checked && !confirm('현재 소그룹의 활동 항목을 모든 소그룹에 그대로 적용할까요? 각 소그룹이 가진 기존 활동 항목은 이 목록으로 대체돼요.')){
+          typesGlobalToggle.checked = false;
+          return;
+        }
+        typesGlobalToggle.disabled = true;
+        if(checked){
+          var syncRes = await syncActivityTypesToAllGroups(activityTypes);
+          if(syncRes && syncRes.error){ showToast('적용 실패: '+syncRes.error.message); typesGlobalToggle.checked = false; typesGlobalToggle.disabled = false; return; }
+        }
+        var payload = Object.assign({}, systemSettingsInfo, { id: 'global', activity_types_global_enabled: checked });
+        var res = await supabaseClient.from('sg_system_settings').upsert(payload);
+        if(res.error){ showToast('저장 실패: '+res.error.message); typesGlobalToggle.checked = !checked; typesGlobalToggle.disabled = false; return; }
+        systemSettingsInfo = payload;
+        await loadGroupData(currentMember.group_id);
+        renderSettingsTab();
+        showToast(checked ? '모든 소그룹에 적용했어요.' : '소그룹별 관리로 전환했어요.');
+      });
+    }
   }
 
   if(hasPermission('bible_settings')){
@@ -2547,9 +2484,10 @@ function openPermissionSettingsScreen(){
       var key = cb.getAttribute('data-perm-key');
       var updated = getPermissionSettings();
       updated[role][key] = cb.checked;
-      var res = await supabaseClient.from('sg_system_settings').upsert({ id: 'global', permission_settings: updated });
+      var payload = Object.assign({}, systemSettingsInfo, { id: 'global', permission_settings: updated });
+      var res = await supabaseClient.from('sg_system_settings').upsert(payload);
       if(res.error){ showToast('저장 실패: '+res.error.message); cb.checked = !cb.checked; return; }
-      systemSettingsInfo = { id: 'global', permission_settings: updated };
+      systemSettingsInfo = payload;
       showToast('권한 설정을 저장했어요.');
     });
   });
@@ -2569,10 +2507,22 @@ function openActivityTypeForm(existing){
   document.getElementById('type_saveBtn').addEventListener('click', async function(){
     var name = document.getElementById('type_name').value.trim();
     if(!name){ showToast('항목 이름을 입력해주세요.'); return; }
+    var oldName = existing ? existing.name : null;
     var res = existing
       ? await supabaseClient.from('sg_activity_types').update({ name: name }).eq('id', existing.id)
       : await supabaseClient.from('sg_activity_types').insert({ id: uid(), group_id: currentMember.group_id, name: name });
     if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    if(systemSettingsInfo && systemSettingsInfo.activity_types_global_enabled){
+      if(existing && oldName){
+        await supabaseClient.from('sg_activity_types').update({ name: name }).eq('name', oldName).neq('group_id', currentMember.group_id);
+      }else{
+        var groupsRes = await supabaseClient.from('sg_groups').select('id');
+        var otherGroupIds = ((groupsRes.data)||[]).map(function(g){ return g.id; }).filter(function(gid){ return gid !== currentMember.group_id; });
+        if(otherGroupIds.length > 0){
+          await supabaseClient.from('sg_activity_types').insert(otherGroupIds.map(function(gid){ return { id: uid(), group_id: gid, name: name }; }));
+        }
+      }
+    }
     closeSheet('genericSheet');
     await loadGroupData(currentMember.group_id);
     renderSettingsTab();
@@ -2606,7 +2556,7 @@ function openAnnouncementForm(existing){
   var html = '';
   html += '<div class="field"><span class="field-label">공지 내용</span><textarea id="ann_content" rows="3" placeholder="예: 이번 주 소모임은 오후 7시입니다.">'+escapeHtml(e.content||'')+'</textarea></div>';
   html += '<div class="field"><span class="field-label">활동 항목(선택)</span><select id="ann_activityType"><option value="">선택 안 함</option>';
-  activityTypes.forEach(function(t){
+  getEffectiveActivityTypes().forEach(function(t){
     html += '<option value="'+escapeHtml(t.name)+'"'+(e.activity_type===t.name?' selected':'')+'>'+escapeHtml(t.name)+'</option>';
   });
   html += '</select></div>';
@@ -2967,10 +2917,11 @@ function openActivityForm(existing, dateIso, readOnly){
   var html = '';
   html += '<div class="field"><span class="field-label">날짜</span><input type="date" id="act_date" value="'+(e.date||dateIso)+'"></div>';
   html += '<div class="field"><span class="field-label">제목</span><input type="text" id="act_title" placeholder="예: 정기 소모임" value="'+escapeHtml(e.title||'')+'"></div>';
-  if(activityTypes.length > 0){
+  var effectiveActivityTypes = getEffectiveActivityTypes();
+  if(effectiveActivityTypes.length > 0){
     html += '<div class="field"><span class="field-label">활동 항목(선택)</span><select id="act_type">';
     html += '<option value="">선택 안 함</option>';
-    activityTypes.forEach(function(t){
+    effectiveActivityTypes.forEach(function(t){
       html += '<option value="'+escapeHtml(t.name)+'"'+(e.activity_type===t.name?' selected':'')+'>'+(t.name==='기도요청'?'\u2020 ':'')+escapeHtml(t.name)+'</option>';
     });
     html += '</select></div>';
