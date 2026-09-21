@@ -2049,7 +2049,32 @@ async function openDailyReadingForDate(dateIso){
     var groupInfo2 = (groupRes2.data && groupRes2.data[0]) || {};
     var readingMode = groupInfo2.bible_reading_mode || 'bskorea';
 
-    if(readingMode === 'custom' && groupInfo2.custom_bible_url){
+// 기존 '성경 읽기' 버튼 이벤트 리스너를 아래와 같이 수정합니다.
+var readBibleBtn = document.getElementById('dr_readBibleBtn'); // 실제 버튼 ID 사용
+if (readBibleBtn) {
+  readBibleBtn.addEventListener('click', function() {
+    // 1. 현재 소그룹/시스템 설정에서 성경 옵션 확인 (기본값: youversion)
+    var bibleProvider = 'youversion'; 
+    if (systemSettingsInfo && systemSettingsInfo.bible_settings && systemSettingsInfo.bible_settings.provider) {
+      bibleProvider = systemSettingsInfo.bible_settings.provider;
+    }
+
+    // 2. 설정에 따른 동작 분기 처리
+    if (bibleProvider === 'youversion') {
+      // 유버전 선택 시 -> 새로 추가한 앱 내 뷰어로 화면 전환
+      openBibleReader(dateIso, plan, range.chapters, isCompleted);
+    } else {
+      // 대한성서공회 등 선택 시 -> 기존처럼 외부 브라우저 창 띄우기
+      var url = bskoreaReadUrl(range.chapters[0].book, range.chapters[0].chapter);
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        showToast('해당 말씀의 외부 링크를 열 수 없어요.');
+      }
+    }
+  });
+}
+/*    if(readingMode === 'custom' && groupInfo2.custom_bible_url){
       html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">등록해둔 주소로 연결돼요. 오늘 읽을 범위('+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장~)를 직접 찾아 읽으세요.</p>';
     }else if(readingMode === 'bskorea'){
@@ -2065,7 +2090,7 @@ async function openDailyReadingForDate(dateIso){
       }
     }
   }
-
+*/
   if(done){
     html += '<div class="card" style="text-align:center;background:var(--pine-soft);border-color:var(--pine);"><p style="font-weight:700;color:var(--pine);display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('check')+' 읽기 완료!</p></div>';
   }else{
@@ -3321,35 +3346,10 @@ async function openDateMenu(dateIso){
   document.getElementById('genericSheetBody').innerHTML = html;
   openSheet('genericSheet');
 
- /* document.getElementById('dm_readingBtn').addEventListener('click', function(){
+  document.getElementById('dm_readingBtn').addEventListener('click', function(){
     closeSheet('genericSheet');
     openDailyReadingForDate(dateIso);
-  });*/
-// 기존 '성경 읽기' 버튼 이벤트 리스너를 아래와 같이 수정합니다.
-var readBibleBtn = document.getElementById('dr_readBibleBtn'); // 실제 버튼 ID 사용
-if (readBibleBtn) {
-  readBibleBtn.addEventListener('click', function() {
-    // 1. 현재 소그룹/시스템 설정에서 성경 옵션 확인 (기본값: youversion)
-    var bibleProvider = 'youversion'; 
-    if (systemSettingsInfo && systemSettingsInfo.bible_settings && systemSettingsInfo.bible_settings.provider) {
-      bibleProvider = systemSettingsInfo.bible_settings.provider;
-    }
-
-    // 2. 설정에 따른 동작 분기 처리
-    if (bibleProvider === 'youversion') {
-      // 유버전 선택 시 -> 새로 추가한 앱 내 뷰어로 화면 전환
-      openBibleReader(dateIso, plan, range.chapters, isCompleted);
-    } else {
-      // 대한성서공회 등 선택 시 -> 기존처럼 외부 브라우저 창 띄우기
-      var url = bskoreaReadUrl(range.chapters[0].book, range.chapters[0].chapter);
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        showToast('해당 말씀의 외부 링크를 열 수 없어요.');
-      }
-    }
   });
-}
   document.getElementById('dm_chatBtn').addEventListener('click', function(){
     closeSheet('genericSheet');
     openDailyChatScreen(dateIso);
