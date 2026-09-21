@@ -2043,11 +2043,9 @@ async function openDailyReadingForDate(dateIso){
       html += '<a href="'+escapeHtml(targetUrl)+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' 대한성서공회에서 말씀 읽기</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">대한성서공회 웹페이지로 이동하여 말씀을 읽습니다.</p>';
     }else{
-      var readUrl = youversionReadUrl(startChapter.book, startChapter.chapter);
-      if(readUrl){
-        html += '<a href="'+readUrl+'" target="_blank" rel="noopener" class="btn btn-primary btn-block" style="margin-bottom:8px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' 성경읽기 (유버전)</a>';
-        html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">'+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장부터 열려요. 이후 장은 그 페이지 안에서 넘겨서 읽으세요.</p>';
-      }
+      // 유버전: 외부 링크가 아니라 앱 내부 성경 뷰어를 엽니다.
+      html += '<button class="btn btn-primary btn-block" id="dr_openReaderBtn" type="button" style="margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;">'+icoSpan('book')+' 성경읽기 (유버전)</button>';
+      html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">버튼을 누르면 앱 내부에서 오늘의 통독 본문을 읽을 수 있어요.</p>';
     }
   }
 
@@ -2059,6 +2057,14 @@ async function openDailyReadingForDate(dateIso){
 
   document.getElementById('dailyReadingSheetBody').innerHTML = html;
   openSheet('dailyReadingSheet');
+
+  // 유버전 내부 뷰어 버튼 이벤트 연결
+  var readerBtn = document.getElementById('dr_openReaderBtn');
+  if(readerBtn){
+    readerBtn.addEventListener('click', function(){
+      openBibleReader(dateIso, plan, chapters, done);
+    });
+  }
 
   if(!done){
     var compBtn = document.getElementById('dr_completeBtn');
