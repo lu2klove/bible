@@ -355,6 +355,14 @@
   </div>
 </div>
 
+<div class="sheet" id="chatDatePickerSheet" style="z-index:97;">
+  <div class="sheet-head">
+    <span class="sheet-title">날짜로 이동</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('chatDatePickerSheet')">✕</button>
+  </div>
+  <div id="chatDatePickerBody"></div>
+</div>
+
 <div class="sheet" id="gallerySheet" style="z-index:96;">
   <div class="sheet-head">
     <span class="sheet-title" style="display:flex;align-items:center;gap:6px;">🖼️ 갤러리</span>
@@ -369,6 +377,22 @@
   </div>
   <input type="file" accept="image/*" id="galleryImageInput" style="display:none;">
   <div id="galleryBody" style="max-height:65vh;overflow-y:auto;"></div>
+</div>
+
+<div class="sheet" id="galleryFormSheet" style="z-index:98;">
+  <div class="sheet-head">
+    <span class="sheet-title" id="galleryFormTitle">사진 등록</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('galleryFormSheet')">✕</button>
+  </div>
+  <div id="galleryFormBody"></div>
+</div>
+
+<div class="sheet" id="galleryDetailSheet" style="z-index:97;">
+  <div class="sheet-head">
+    <span class="sheet-title">사진 상세</span>
+    <button class="sheet-close" type="button" onclick="closeSheet('galleryDetailSheet')">✕</button>
+  </div>
+  <div id="galleryDetailBody"></div>
 </div>
 
 <div id="imgViewerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:14px;" onclick="closeImageViewer()">
@@ -753,6 +777,11 @@ function niceDate(dateStr){
   var d = new Date(dateStr+'T00:00:00');
   var days = ['일','월','화','수','목','금','토'];
   return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
+}
+function niceDateWithYear(dateStr){
+  var d = new Date(dateStr+'T00:00:00');
+  var days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+days[d.getDay()];
 }
 function shortDateLabel(dateStr){
   var d = new Date(dateStr+'T00:00:00');
@@ -1981,22 +2010,29 @@ function closeGroupChatSheet(){
   closeSheet('groupChatSheet');
 }
 
-async function renderGroupChatMessages(){
+async function renderGroupChatMessages(forceScrollBottom){
   var msgs = await loadGroupChats(currentMember.group_id);
   var box = document.getElementById('groupChatMessages');
   if(!box) return;
+  var wasNearBottom = forceScrollBottom || (box.scrollHeight === 0) || (box.scrollTop + box.clientHeight >= box.scrollHeight - 60);
   if(msgs.length === 0){
     box.innerHTML = '<p class="empty-inline" style="padding:20px 0;">아직 메시지가 없어요. 첫 메시지를 남겨보세요!</p>';
   }else{
     var canModerate = isAdminRole(currentMember.role);
     var html = '';
+    var lastDate = null;
     msgs.forEach(function(m){
+      var msgDate = (m.created_at||'').slice(0,10);
+      if(msgDate !== lastDate){
+        lastDate = msgDate;
+        html += '<div style="text-align:center;margin:14px 0 10px;"><button type="button" class="chip" data-chat-date-pill="'+msgDate+'" style="font-size:0.75rem;padding:5px 12px;">'+niceDateWithYear(msgDate)+' ›</button></div>';
+      }
       var mine = m.member_id === currentMember.id;
       var canDelete = mine || canModerate;
       var sender = members.find(function(mm){ return mm.id === m.member_id; });
       var senderName = sender ? sender.name : '알 수 없음';
       var timeLabel = new Date(m.created_at).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-      html += '<div style="display:flex;flex-direction:column;align-items:'+(mine?'flex-end':'flex-start')+';margin-bottom:10px;">';
+      html += '<div data-chat-msg-date="'+msgDate+'" style="display:flex;flex-direction:column;align-items:'+(mine?'flex-end':'flex-start')+';margin-bottom:10px;">';
       if(!mine) html += '<span class="savehint" style="margin-bottom:2px;">'+escapeHtml(senderName)+'</span>';
       html += '<div style="display:flex;align-items:flex-end;gap:6px;'+(mine?'flex-direction:row-reverse;':'')+'">';
       if(m.image_data){
@@ -2011,9 +2047,12 @@ async function renderGroupChatMessages(){
       html += '</div></div>';
     });
     box.innerHTML = html;
-    box.scrollTop = box.scrollHeight;
+    if(wasNearBottom) box.scrollTop = box.scrollHeight;
     box.querySelectorAll('[data-chat-img-view]').forEach(function(img){
       img.addEventListener('click', function(){ openImageViewer(img.src); });
+    });
+    box.querySelectorAll('[data-chat-date-pill]').forEach(function(pill){
+      pill.addEventListener('click', function(){ openGroupChatDatePicker(pill.getAttribute('data-chat-date-pill')); });
     });
     box.querySelectorAll('[data-groupchat-del]').forEach(function(btn){
       btn.addEventListener('click', async function(){
@@ -2026,6 +2065,71 @@ async function renderGroupChatMessages(){
   }
 }
 
+async function openGroupChatDatePicker(initialDateIso){
+  var msgs = await loadGroupChats(currentMember.group_id);
+  var datesWithChat = {};
+  msgs.forEach(function(m){ datesWithChat[(m.created_at||'').slice(0,10)] = true; });
+  var sortedDates = Object.keys(datesWithChat).sort();
+
+  var initD = new Date((initialDateIso||todayStr())+'T00:00:00');
+  var pickerYear = initD.getFullYear();
+  var pickerMonth = initD.getMonth()+1; // 1-12
+
+  function jumpToDate(targetIso){
+    closeSheet('chatDatePickerSheet');
+    var finalIso = targetIso;
+    if(!datesWithChat[finalIso]){
+      var before = sortedDates.filter(function(d){ return d <= targetIso; }).pop();
+      var after = sortedDates.filter(function(d){ return d >= targetIso; })[0];
+      finalIso = before || after;
+      if(!finalIso){ showToast('채팅 기록이 없어요.'); return; }
+    }
+    var target = document.querySelector('[data-chat-msg-date="'+finalIso+'"]');
+    if(target){
+      target.scrollIntoView({ block: 'center' });
+      target.style.transition = 'background 0.3s';
+      var origBg = target.style.background;
+      target.style.background = 'var(--pine-soft)';
+      setTimeout(function(){ target.style.background = origBg; }, 900);
+    }
+  }
+
+  function render(){
+    var firstOfMonth = new Date(pickerYear, pickerMonth-1, 1);
+    var startDow = firstOfMonth.getDay();
+    var daysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
+    var html = '';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    html += '<button class="btn" id="cdp_prev" type="button" style="padding:6px 10px;">‹</button>';
+    html += '<span style="font-weight:700;">'+pickerYear+'년 '+pickerMonth+'월</span>';
+    html += '<button class="btn" id="cdp_next" type="button" style="padding:6px 10px;">›</button>';
+    html += '</div>';
+    html += '<div class="cal-grid">';
+    ['일','월','화','수','목','금','토'].forEach(function(d){ html += '<div class="cal-dow">'+d+'</div>'; });
+    for(var i=0;i<startDow;i++) html += '<div></div>';
+    for(var d=1; d<=daysInMonth; d++){
+      var iso = pickerYear+'-'+String(pickerMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      var hasChat = !!datesWithChat[iso];
+      html += '<div class="cal-cell" data-cdp-date="'+iso+'" style="cursor:pointer;">';
+      html += '<span class="cal-daynum" style="'+(hasChat?'background:var(--pine);color:#fff;':'')+'">'+d+'</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    document.getElementById('chatDatePickerBody').innerHTML = html;
+    document.getElementById('cdp_prev').addEventListener('click', function(){
+      pickerMonth--; if(pickerMonth<1){ pickerMonth=12; pickerYear--; } render();
+    });
+    document.getElementById('cdp_next').addEventListener('click', function(){
+      pickerMonth++; if(pickerMonth>12){ pickerMonth=1; pickerYear++; } render();
+    });
+    document.querySelectorAll('[data-cdp-date]').forEach(function(cell){
+      cell.addEventListener('click', function(){ jumpToDate(cell.getAttribute('data-cdp-date')); });
+    });
+  }
+  render();
+  openSheet('chatDatePickerSheet');
+}
+
 async function sendGroupChatMessage(){
   var input = document.getElementById('groupChatInput');
   var message = input.value.trim();
@@ -2035,7 +2139,7 @@ async function sendGroupChatMessage(){
   });
   if(res.error){ showToast('전송 실패: '+res.error.message); return; }
   input.value = '';
-  await renderGroupChatMessages();
+  await renderGroupChatMessages(true);
 }
 
 async function sendGroupChatImage(dataUrl){
@@ -2043,7 +2147,7 @@ async function sendGroupChatImage(dataUrl){
     id: uid(), group_id: currentMember.group_id, member_id: currentMember.id, message: null, image_data: dataUrl
   });
   if(res.error){ showToast('전송 실패: '+res.error.message); return; }
-  await renderGroupChatMessages();
+  await renderGroupChatMessages(true);
 }
 
 // ---------- 갤러리 ----------
@@ -2072,14 +2176,73 @@ async function openGalleryScreen(){
   document.getElementById('galleryImageInput').onchange = function(ev){
     var file = ev.target.files[0];
     if(!file) return;
-    compressImageToDataURL(file, async function(dataUrl){
-      var res = await supabaseClient.from('sg_gallery').insert({ id: uid(), group_id: currentMember.group_id, member_id: currentMember.id, image_data: dataUrl });
-      if(res.error){ showToast('등록 실패: '+res.error.message); return; }
-      showToast('사진을 등록했어요.');
-      await renderGalleryBody();
+    compressImageToDataURL(file, function(dataUrl){
+      openGalleryForm(null, dataUrl);
     }, 1200, 0.75);
     ev.target.value = '';
   };
+}
+
+function openGalleryForm(existing, pendingImageData){
+  var e = existing || {};
+  var imageData = pendingImageData || e.image_data;
+  var html = '';
+  html += '<div style="text-align:center;margin-bottom:12px;"><img src="'+imageData+'" style="max-width:100%;max-height:220px;border-radius:10px;object-fit:contain;"></div>';
+  html += '<div class="field"><span class="field-label">제목</span><input type="text" id="gallery_title" placeholder="예: 9월 야유회" value="'+escapeHtml(e.title||'')+'"></div>';
+  html += '<div class="field"><span class="field-label">내용(선택)</span><textarea id="gallery_content" rows="3" placeholder="사진에 대한 설명을 남겨보세요.">'+escapeHtml(e.caption||'')+'</textarea></div>';
+  html += '<button class="btn btn-primary btn-block" id="gallery_formSaveBtn" type="button" style="margin-top:8px;">'+(existing?'수정 완료':'등록')+'</button>';
+
+  document.getElementById('galleryFormTitle').textContent = existing ? '사진 수정' : '사진 등록';
+  document.getElementById('galleryFormBody').innerHTML = html;
+  openSheet('galleryFormSheet');
+
+  document.getElementById('gallery_formSaveBtn').addEventListener('click', async function(){
+    var title = document.getElementById('gallery_title').value.trim();
+    var content = document.getElementById('gallery_content').value.trim();
+    if(!title){ showToast('제목을 입력해주세요.'); return; }
+    var res = existing
+      ? await supabaseClient.from('sg_gallery').update({ title: title, caption: content || null }).eq('id', existing.id)
+      : await supabaseClient.from('sg_gallery').insert({ id: uid(), group_id: currentMember.group_id, member_id: currentMember.id, image_data: imageData, title: title, caption: content || null });
+    if(res.error){ showToast('저장 실패: '+res.error.message); return; }
+    closeSheet('galleryFormSheet');
+    if(existing) closeSheet('galleryDetailSheet');
+    showToast(existing ? '수정했어요.' : '사진을 등록했어요.');
+    await renderGalleryBody();
+  });
+}
+
+function openGalleryDetail(item){
+  var uploader = members.find(function(m){ return m.id === item.member_id; });
+  var uploaderName = uploader ? uploader.name : '알 수 없음';
+  var dateLabel = new Date(item.created_at).toLocaleDateString('ko-KR');
+  var canEdit = item.member_id === currentMember.id || isAdminRole(currentMember.role);
+  var html = '';
+  html += '<div style="text-align:center;margin-bottom:12px;"><img src="'+item.image_data+'" data-gallery-detail-img style="max-width:100%;max-height:280px;border-radius:10px;object-fit:contain;cursor:zoom-in;"></div>';
+  html += '<p style="font-weight:700;font-size:1.0625rem;margin-bottom:4px;">'+escapeHtml(item.title||'(제목 없음)')+'</p>';
+  html += '<p class="savehint" style="margin-bottom:10px;">'+escapeHtml(uploaderName)+' · '+dateLabel+'</p>';
+  if(item.caption) html += '<p style="white-space:pre-wrap;line-height:1.6;margin-bottom:14px;">'+escapeHtml(item.caption)+'</p>';
+  if(canEdit){
+    html += '<div class="row2">';
+    html += '<button class="btn btn-block" id="gallery_detailEditBtn" type="button">수정</button>';
+    html += '<button class="btn btn-block" id="gallery_detailDelBtn" type="button" style="color:var(--brick);">삭제</button>';
+    html += '</div>';
+  }
+
+  document.getElementById('galleryDetailBody').innerHTML = html;
+  openSheet('galleryDetailSheet');
+
+  document.querySelector('[data-gallery-detail-img]').addEventListener('click', function(){ openImageViewer(item.image_data); });
+  if(canEdit){
+    document.getElementById('gallery_detailEditBtn').addEventListener('click', function(){ openGalleryForm(item); });
+    document.getElementById('gallery_detailDelBtn').addEventListener('click', async function(){
+      if(!confirm('이 사진을 삭제할까요?')) return;
+      var res = await supabaseClient.from('sg_gallery').delete().eq('id', item.id);
+      if(res.error){ showToast('삭제 실패: '+res.error.message); return; }
+      closeSheet('galleryDetailSheet');
+      showToast('삭제했어요.');
+      await renderGalleryBody();
+    });
+  }
 }
 
 async function renderGalleryBody(){
@@ -2090,15 +2253,13 @@ async function renderGalleryBody(){
     body.innerHTML = '<p class="empty-inline" style="padding:20px 0;">등록된 사진이 없어요.</p>';
     return;
   }
-  var canModerate = isAdminRole(currentMember.role);
   var html = '';
   if(galleryViewMode === 'grid'){
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
     items.forEach(function(it){
-      var canDeleteGrid = it.member_id === currentMember.id || canModerate;
-      html += '<div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;">';
-      html += '<img src="'+it.image_data+'" data-gallery-img-view="'+it.id+'" style="width:100%;height:100%;object-fit:cover;cursor:pointer;display:block;">';
-      if(canDeleteGrid) html += '<button type="button" data-gallery-del="'+it.id+'" style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:0.75rem;line-height:1;cursor:pointer;">✕</button>';
+      html += '<div data-gallery-open="'+it.id+'" style="cursor:pointer;">';
+      html += '<div style="aspect-ratio:1;border-radius:8px;overflow:hidden;"><img src="'+it.image_data+'" style="width:100%;height:100%;object-fit:cover;display:block;"></div>';
+      html += '<p style="font-size:0.6875rem;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;">'+escapeHtml(it.title||'')+'</p>';
       html += '</div>';
     });
     html += '</div>';
@@ -2107,28 +2268,19 @@ async function renderGalleryBody(){
       var uploader = members.find(function(m){ return m.id === it.member_id; });
       var uploaderName = uploader ? uploader.name : '알 수 없음';
       var dateLabel = new Date(it.created_at).toLocaleDateString('ko-KR');
-      var canDelete = it.member_id === currentMember.id || canModerate;
-      html += '<div class="member-row">';
-      html += '<div style="display:flex;align-items:center;gap:10px;">';
-      html += '<img src="'+it.image_data+'" data-gallery-img-view="'+it.id+'" style="width:52px;height:52px;border-radius:8px;object-fit:cover;cursor:pointer;flex-shrink:0;">';
-      html += '<div><p style="font-weight:600;">'+escapeHtml(uploaderName)+'</p><p class="savehint">'+dateLabel+'</p></div>';
+      html += '<div class="member-row" data-gallery-open="'+it.id+'" style="cursor:pointer;">';
+      html += '<div style="display:flex;align-items:center;gap:10px;min-width:0;">';
+      html += '<img src="'+it.image_data+'" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;">';
+      html += '<div style="min-width:0;"><p style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(it.title||'(제목 없음)')+'</p><p class="savehint">'+dateLabel+' · '+escapeHtml(uploaderName)+'</p></div>';
       html += '</div>';
-      if(canDelete) html += '<button type="button" class="chip" data-gallery-del="'+it.id+'" style="font-size:0.75rem;padding:6px 10px;">삭제</button>';
       html += '</div>';
     });
   }
   body.innerHTML = html;
-  var galleryItems = items;
-  body.querySelectorAll('[data-gallery-img-view]').forEach(function(img){
-    img.addEventListener('click', function(){ openImageViewer(img.src); });
-  });
-  body.querySelectorAll('[data-gallery-del]').forEach(function(btn){
-    btn.addEventListener('click', async function(ev){
-      ev.stopPropagation();
-      if(!confirm('이 사진을 삭제할까요?')) return;
-      var res = await supabaseClient.from('sg_gallery').delete().eq('id', btn.getAttribute('data-gallery-del'));
-      if(res.error){ showToast('삭제 실패: '+res.error.message); return; }
-      await renderGalleryBody();
+  body.querySelectorAll('[data-gallery-open]').forEach(function(el2){
+    el2.addEventListener('click', function(){
+      var item = items.find(function(x){ return x.id === el2.getAttribute('data-gallery-open'); });
+      if(item) openGalleryDetail(item);
     });
   });
 }
