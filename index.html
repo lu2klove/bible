@@ -162,7 +162,7 @@
   .sheet{
     position:fixed; left:0; right:0; bottom:0; max-width:520px; margin:0 auto;
     background:var(--paper); border-radius:16px 16px 0 0; z-index:90;
-    max-height:88vh; overflow-y:auto; padding:18px 16px 24px;
+    max-height:88vh; overflow-y:auto; padding:18px 16px 24px; overscroll-behavior:contain;
     transform:translateY(100%); transition:transform 0.25s ease;
   }
   @media (min-width:900px){ .sheet{ max-width:640px; } }
@@ -289,7 +289,7 @@
   .color-swatch-round::-webkit-color-swatch{border:none; border-radius:50%;}
   .color-swatch-round::-moz-color-swatch{border:none; border-radius:50%;}
   .ig-calendar-card{background:#FFFFFF; border:1px solid rgba(0,0,0,0.06); border-radius:18px; box-shadow:0 3px 14px rgba(0,0,0,0.14);}
-  /* ---- 성경 본문 읽기 전용 스타일 ---- */
+ /* ---- 성경 본문 읽기 전용 스타일 ---- */
   .bible-reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
   .bible-chapter-title{font-size:1.4375rem;margin-top:3px;}
   .bible-page-count{font-size:0.75rem;color:var(--ink-faint);padding-top:5px;white-space:nowrap;}
@@ -345,7 +345,7 @@
     <span class="sheet-title" id="dailyChatSheetTitle" style="display:flex;align-items:center;gap:6px;"><span class="ico-inline"><svg width="1em" height="1em" viewBox="0 0 20 18"><path d="M2 3.5C2 2.11929 3.11929 1 4.5 1H15.5C16.8807 1 18 2.11929 18 3.5V10.5C18 11.8807 16.8807 13 15.5 13H8.5L5 16.5V13H4.5C3.11929 13 2 11.8807 2 10.5V3.5Z" fill="currentColor"/></svg></span> 오늘의 채팅</span>
     <button class="sheet-close" type="button" onclick="closeDailyChatSheet()">✕</button>
   </div>
-  <div id="dailyChatMessages" style="max-height:50vh;overflow-y:auto;margin-bottom:10px;"></div>
+  <div id="dailyChatMessages" style="max-height:50vh;overflow-y:auto;overscroll-behavior:contain;margin-bottom:10px;"></div>
   <p class="savehint" id="dailyChatReadOnlyNotice" style="display:none;text-align:center;">📌 오늘 날짜에만 채팅을 남길 수 있어요. 이 날짜는 내역만 볼 수 있어요.</p>
   <div id="dailyChatInputRow" style="display:flex;gap:8px;">
     <input type="text" id="dailyChatInput" placeholder="메시지를 입력하세요" style="flex:1;">
@@ -358,7 +358,7 @@
     <span class="sheet-title" style="display:flex;align-items:center;gap:6px;"><span class="ico-inline"><svg width="1em" height="1em" viewBox="0 0 20 18"><path d="M2 3.5C2 2.11929 3.11929 1 4.5 1H15.5C16.8807 1 18 2.11929 18 3.5V10.5C18 11.8807 16.8807 13 15.5 13H8.5L5 16.5V13H4.5C3.11929 13 2 11.8807 2 10.5V3.5Z" fill="currentColor"/></svg></span> 채팅하기</span>
     <button class="sheet-close" type="button" onclick="closeGroupChatSheet()">✕</button>
   </div>
-  <div id="groupChatMessages" style="max-height:55vh;overflow-y:auto;margin-bottom:10px;"></div>
+  <div id="groupChatMessages" style="max-height:55vh;overflow-y:auto;overscroll-behavior:contain;margin-bottom:10px;"></div>
   <input type="file" accept="image/*" id="groupChatImageInput" style="display:none;">
   <div style="display:flex;gap:8px;">
     <button type="button" class="btn" id="groupChatImageBtn" style="flex-shrink:0;padding:10px 12px;">📷</button>
@@ -388,7 +388,7 @@
     <button type="button" class="btn btn-primary" id="galleryAddBtn" style="padding:7px 12px;font-size:0.8125rem;">+ 사진 추가</button>
   </div>
   <input type="file" accept="image/*" id="galleryImageInput" style="display:none;">
-  <div id="galleryBody" style="max-height:65vh;overflow-y:auto;"></div>
+  <div id="galleryBody" style="max-height:65vh;overflow-y:auto;overscroll-behavior:contain;"></div>
 </div>
 
 <div class="sheet" id="galleryFormSheet" style="z-index:98;">
@@ -776,14 +776,32 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
 }
+var savedBodyScrollY = 0;
 function openSheet(id){
+  var anyAlreadyOpen = Array.prototype.some.call(document.querySelectorAll('.sheet'), function(s){ return s.classList.contains('open'); });
+  if(!anyAlreadyOpen){
+    savedBodyScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = (-savedBodyScrollY)+'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
   document.getElementById(id).classList.add('open');
   document.getElementById('sheetBackdrop').classList.add('open');
 }
 function closeSheet(id){
   document.getElementById(id).classList.remove('open');
   var anyOtherOpen = Array.prototype.some.call(document.querySelectorAll('.sheet'), function(s){ return s.classList.contains('open'); });
-  if(!anyOtherOpen) document.getElementById('sheetBackdrop').classList.remove('open');
+  if(!anyOtherOpen){
+    document.getElementById('sheetBackdrop').classList.remove('open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, savedBodyScrollY);
+  }
 }
 function niceDate(dateStr){
   var d = new Date(dateStr+'T00:00:00');
@@ -2462,7 +2480,6 @@ async function openDailyReadingForDate(dateIso){
     }
   }
 */
-
 if(readingMode === 'custom' && groupInfo2.custom_bible_url){
       html += '<a href="'+escapeHtml(groupInfo2.custom_bible_url)+'" target="_blank" rel="noopener" class="btn btn-block" style="margin-bottom:8px;text-decoration:none;">📖 '+escapeHtml(groupInfo2.custom_bible_name||'말씀 읽기')+'</a>';
       html += '<p class="savehint" style="text-align:center;margin-bottom:8px;">등록해둔 주소로 연결돼요. 오늘 읽을 범위('+escapeHtml(startChapter.book)+' '+startChapter.chapter+'장~)를 직접 찾아 읽으세요.</p>';
