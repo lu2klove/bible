@@ -2667,7 +2667,7 @@ async function renderSettingsTab(){
     html += '<div class="card" style="margin-bottom:14px;">';
     html += '<p class="savehint" style="margin-bottom:8px;">오늘의 통독 화면에서 "말씀 읽기" 버튼을 눌렀을 때 열리는 곳이에요.</p>';
     html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
-    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기 (유버전 Bible.com 앱/웹으로 연결)</span>';
+    html += '<input type="radio" name="bible_mode" value="youversion"'+(currentGroup.bible_reading_mode==='youversion'?' checked':'')+'> <span>성경읽기</span>';
     html += '</label>';
     html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;">';
     html += '<input type="radio" name="bible_mode" value="bskorea"'+((!currentGroup.bible_reading_mode || currentGroup.bible_reading_mode==='bskorea')?' checked':'')+'> <span>대한성서공회에서 말씀읽기</span>';
